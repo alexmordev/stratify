@@ -3,25 +3,85 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg:     oklch(0.985 0.003 90);
+  --bg-2:   oklch(0.975 0.004 90);
+  --panel:  oklch(1 0 0);
+  --line:   oklch(0.92 0.004 90);
+  --line-2: oklch(0.955 0.004 90);
+  --ink:    oklch(0.22 0.01 90);
+  --ink-2:  oklch(0.42 0.008 90);
+  --ink-3:  oklch(0.62 0.006 90);
+  --ink-4:  oklch(0.78 0.004 90);
+  --accent: oklch(0.48 0.02 260);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 14px;
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-inter), Inter, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+.mono {
+  font-family: var(--font-mono), 'IBM Plex Mono', monospace;
+}
+
+.serif {
+  font-family: var(--font-serif), Fraunces, serif;
+  font-style: italic;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg);
+  border: 2px solid var(--bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: oklch(0.9 0.004 90);
+  border-radius: 999px;
+  border: 2px solid var(--bg);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.85 0.004 90);
+}
+
+/* Focus visible */
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px oklch(0.9 0.01 260);
+}
+
+/* Remove number input spinners */
+input[type='number'] {
+  -webkit-appearance: none;
+  -moz-appearance: textfield;
+}
+
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Custom checkbox reset */
+input[type='checkbox'] {
+  -webkit-appearance: none;
+  appearance: none;
 }
