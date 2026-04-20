@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import './globals.css';
 import Sidebar from '@/components/layout/Sidebar';
 import SearchPalette from '@/components/layout/SearchPalette';
+import ModalReview from '@/components/modals/ModalReview';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -28,6 +29,7 @@ const fraunces = Fraunces({
 
 export default function RootLayout({ children }) {
   const [searchOpen, setSearchOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
 
   useEffect(() => {
     function handleKeyDown(e) {
@@ -44,7 +46,7 @@ export default function RootLayout({ children }) {
     <html lang="es">
       <body className={`${inter.variable} ${ibmPlexMono.variable} ${fraunces.variable}`}>
         <div style={{ display: 'flex', minHeight: '100vh' }}>
-          <Sidebar onSearchOpen={() => setSearchOpen(true)} />
+          <Sidebar onSearchOpen={() => setSearchOpen(true)} onReviewOpen={() => setReviewOpen(true)} />
           <main
             style={{
               marginLeft: 240,
@@ -58,6 +60,7 @@ export default function RootLayout({ children }) {
           </main>
         </div>
         <SearchPalette open={searchOpen} onClose={() => setSearchOpen(false)} />
+        <ModalReview open={reviewOpen} onClose={() => setReviewOpen(false)} />
       </body>
     </html>
   );

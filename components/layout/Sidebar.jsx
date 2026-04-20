@@ -14,7 +14,7 @@ const NAV_ITEMS = [
   { key: 'tareas', href: '/tareas', icon: 'check' },
 ];
 
-export default function Sidebar({ onSearchOpen }) {
+export default function Sidebar({ onSearchOpen, onReviewOpen }) {
   const pathname = usePathname();
   const [lang, setLang] = useState('es');
   const [activeMetas, setActiveMetas] = useState([]);
@@ -274,7 +274,12 @@ export default function Sidebar({ onSearchOpen }) {
           gap: 6,
         }}
       >
-        <Btn variant="ghost" style={{ width: '100%', justifyContent: 'flex-start' }}>
+        <Btn
+          variant="ghost"
+          style={{ width: '100%', justifyContent: 'flex-start' }}
+          onClick={onReviewOpen}
+          data-testid="review-btn"
+        >
           <Icon name="review" size={14} />
           {t(lang, 'weeklyReview')}
         </Btn>
