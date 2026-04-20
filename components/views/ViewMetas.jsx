@@ -12,6 +12,7 @@ import { t } from '@/lib/i18n';
 import { palById } from '@/lib/palette';
 import { metaProgress } from '@/lib/progress';
 import { toggleMetaActive } from '@/lib/actions/metas';
+import WizardAgent from '@/components/modals/WizardAgent';
 
 function getLang() {
   if (typeof window === 'undefined') return 'es';
@@ -155,6 +156,7 @@ function EmptyState({ message }) {
 export default function ViewMetas({ metas: initialMetas, objetivos, tareas }) {
   const [lang, setLang] = useState('es');
   const [metas, setMetas] = useState(initialMetas);
+  const [wizardOpen, setWizardOpen] = useState(false);
 
   useEffect(() => {
     setLang(getLang());
@@ -196,7 +198,7 @@ export default function ViewMetas({ metas: initialMetas, objetivos, tareas }) {
         title={t(lang, 'metasTitle')}
         subtitle={t(lang, 'metasSubtitle')}
         right={
-          <Btn variant="primary" onClick={() => {}}>
+          <Btn variant="primary" onClick={() => setWizardOpen(true)}>
             {t(lang, 'newMeta')}
           </Btn>
         }
@@ -297,6 +299,10 @@ export default function ViewMetas({ metas: initialMetas, objetivos, tareas }) {
           )}
         </section>
       </div>
+
+      {wizardOpen && (
+        <WizardAgent onClose={() => setWizardOpen(false)} />
+      )}
     </div>
   );
 }

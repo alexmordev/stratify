@@ -32,6 +32,7 @@ export default function Btn({
   type = 'button',
   className = '',
   style = {},
+  ...rest
 }) {
   const base = variants[variant] ?? variants.secondary;
   const padding = size === 'sm' ? '5px 10px' : size === 'lg' ? '10px 20px' : '7px 14px';
@@ -43,6 +44,7 @@ export default function Btn({
       disabled={disabled}
       onClick={onClick}
       className={className}
+      {...rest}
       style={{
         ...base,
         padding,
