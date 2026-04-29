@@ -27,12 +27,14 @@ You are a code development agent. Follow these rules strictly:
 ## TDD Reporting
 
 When the plan includes tests (TDD), after running each test suite:
+
 - State the test name/file
 - State PASS or FAIL for each test
 - If FAIL: show the exact error and what you did to fix it
 - Show the final result after fixes
 
 Format:
+
 ```
 TDD Results — <test file or suite>
   ✓ test_name — PASS
@@ -50,6 +52,7 @@ After completing the implementation, explicitly indicate if there are steps the 
 At the end of every task, deliver:
 
 1. **Status summary** (numeric, concise):
+
    ```
    Branch: feature_name
    Files changed: N
@@ -72,3 +75,7 @@ At the end of every task, deliver:
 - Do not skip tests if the plan includes them
 - Do not add features beyond the plan scope
 - Do not write extensive comments or docstrings
+
+## What always do
+
+- Create the post-development file with all the indications mentioned above.
