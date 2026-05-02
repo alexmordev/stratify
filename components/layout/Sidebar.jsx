@@ -7,6 +7,7 @@ import Icon from '@/components/ui/Icon';
 import Btn from '@/components/ui/Btn';
 import ColorDot from '@/components/ui/ColorDot';
 import { t } from '@/lib/i18n';
+import { palById } from '@/lib/palette';
 
 const NAV_ITEMS = [
   { key: 'metas', href: '/metas', icon: 'target' },
@@ -17,7 +18,7 @@ const NAV_ITEMS = [
 export default function Sidebar({ onSearchOpen, onReviewOpen }) {
   const pathname = usePathname();
   const [lang, setLang] = useState('es');
-  const [activeMetas, setActiveMetas] = useState([]);
+  const [thisWeekObjetivos, setThisWeekObjetivos] = useState([]);
   const [counts, setCounts] = useState({ metas: 0, objetivos: 0, tareas: 0 });
 
   useEffect(() => {
@@ -31,7 +32,7 @@ export default function Sidebar({ onSearchOpen, onReviewOpen }) {
         const res = await fetch('/api/sidebar-data');
         if (res.ok) {
           const data = await res.json();
-          setActiveMetas(data.activeMetas ?? []);
+          setThisWeekObjetivos(data.thisWeekObjetivos ?? []);
           setCounts(data.counts ?? { metas: 0, objetivos: 0, tareas: 0 });
         }
       } catch {
@@ -223,7 +224,7 @@ export default function Sidebar({ onSearchOpen, onReviewOpen }) {
       </div>
 
       {/* Esta semana section */}
-      {activeMetas.length > 0 && (
+      {thisWeekObjetivos.length > 0 && (
         <div style={{ padding: '10px 10px 4px' }}>
           <div
             className="mono"
@@ -237,30 +238,33 @@ export default function Sidebar({ onSearchOpen, onReviewOpen }) {
           >
             {t(lang, 'thisWeek')}
           </div>
-          {activeMetas.map((meta) => (
-            <div
-              key={meta.id}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 7,
-                padding: '4px 6px',
-              }}
-            >
-              <ColorDot color="oklch(0.62 0.14 145)" size={10} />
-              <span
+          {thisWeekObjetivos.map((obj) => {
+            const pal = palById(obj.color);
+            return (
+              <div
+                key={obj.id}
                 style={{
-                  fontSize: 12.5,
-                  color: 'var(--ink-2)',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 7,
+                  padding: '4px 6px',
                 }}
               >
-                {lang === 'en' && meta.title_en ? meta.title_en : meta.title}
-              </span>
-            </div>
-          ))}
+                <ColorDot color={pal.dot} size={10} />
+                <span
+                  style={{
+                    fontSize: 12.5,
+                    color: 'var(--ink-2)',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {lang === 'en' && obj.title_en ? obj.title_en : obj.title}
+                </span>
+              </div>
+            );
+          })}
         </div>
       )}
 

@@ -2,11 +2,10 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 
 export async function GET() {
-  const [activeMetas, metasCount, objetivosCount, tareasCount, pendingCount] = await Promise.all([
-    prisma.meta.findMany({
-      where: { active: true },
-      include: { objetivos: true },
-      orderBy: { createdAt: 'desc' },
+  const [thisWeekObjetivos, metasCount, objetivosCount, tareasCount, pendingCount] = await Promise.all([
+    prisma.objetivo.findMany({
+      where: { thisWeek: true },
+      orderBy: { id: 'asc' },
     }),
     prisma.meta.count(),
     prisma.objetivo.count(),
@@ -15,7 +14,7 @@ export async function GET() {
   ]);
 
   return NextResponse.json({
-    activeMetas,
+    thisWeekObjetivos,
     counts: {
       metas: metasCount,
       objetivos: objetivosCount,

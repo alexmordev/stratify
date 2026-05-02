@@ -31,6 +31,7 @@ model Objetivo {
   color      String  @default("sand")
   weeklyLoad Int     @default(1)
   done       Int     @default(0)
+  thisWeek   Boolean @default(false)
   tareas     Tarea[]
 }
 

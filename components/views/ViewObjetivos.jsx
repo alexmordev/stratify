@@ -10,7 +10,7 @@ import Btn from '@/components/ui/Btn';
 import { t } from '@/lib/i18n';
 import { palById } from '@/lib/palette';
 import { objProgress, metaProgress } from '@/lib/progress';
-import { createObjetivo } from '@/lib/actions/objetivos';
+import { createObjetivo, toggleObjetivoThisWeek } from '@/lib/actions/objetivos';
 import { createTarea, toggleTarea } from '@/lib/actions/tareas';
 
 function getLang() {
@@ -146,16 +146,33 @@ function AddTareaForm({ objId, lang, onAdd, onCancel }) {
   );
 }
 
-function ObjetivoCard({ objetivo, tareas: initialTareas, lang, onTareaToggle, onTareaAdd }) {
+function ObjetivoCard({ objetivo, tareas: initialTareas, lang, onTareaToggle, onTareaAdd, onThisWeekToggle }) {
   const [collapsed, setCollapsed] = useState(false);
   const [tareas, setTareas] = useState(initialTareas);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [thisWeek, setThisWeek] = useState(objetivo.thisWeek ?? false);
+  const [togglingWeek, setTogglingWeek] = useState(false);
 
   const pal = palById(objetivo.color);
   const title = lang === 'en' && objetivo.title_en ? objetivo.title_en : objetivo.title;
   const progress = objProgress(objetivo.id, tareas);
   const doneTareas = tareas.filter((t) => t.done).length;
   const totalTareas = tareas.length;
+
+  async function handleThisWeekToggle() {
+    if (togglingWeek) return;
+    setTogglingWeek(true);
+    const next = !thisWeek;
+    setThisWeek(next);
+    try {
+      await toggleObjetivoThisWeek(objetivo.id);
+      onThisWeekToggle?.(objetivo.id, next);
+    } catch {
+      setThisWeek(!next);
+    } finally {
+      setTogglingWeek(false);
+    }
+  }
 
   async function handleToggleTarea(tareaId) {
     setTareas((prev) =>
@@ -207,6 +224,25 @@ function ObjetivoCard({ objetivo, tareas: initialTareas, lang, onTareaToggle, on
         >
           {title}
         </span>
+        <button
+          data-testid={`thisweek-btn-${objetivo.id}`}
+          type="button"
+          title={thisWeek ? t(lang, 'removeFromWeek') : t(lang, 'scheduleThisWeek')}
+          onClick={handleThisWeekToggle}
+          style={{
+            background: thisWeek ? pal.bg : 'none',
+            border: thisWeek ? `1px solid ${pal.dot}` : '1px solid transparent',
+            borderRadius: 5,
+            padding: 3,
+            cursor: 'pointer',
+            color: thisWeek ? pal.dot : 'var(--ink-4)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            transition: 'background .15s, color .15s, border-color .15s',
+          }}
+        >
+          <Icon name="calendar" size={13} />
+        </button>
         <button
           data-testid={`collapse-btn-${objetivo.id}`}
           type="button"
