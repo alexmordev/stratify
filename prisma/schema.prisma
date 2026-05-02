@@ -9,14 +9,14 @@ datasource db {
 
 model Meta {
   id         String     @id @default(cuid())
-  title      String
-  title_en   String
-  why        String
-  why_en     String
-  success    String
-  success_en String
-  horizon    String
-  horizon_en String
+  title      String     @db.Text
+  title_en   String     @db.Text
+  why        String     @db.Text
+  why_en     String     @db.Text
+  success    String     @db.Text
+  success_en String     @db.Text
+  horizon    String     @db.Text
+  horizon_en String     @db.Text
   active     Boolean    @default(true)
   createdAt  DateTime   @default(now())
   objetivos  Objetivo[]
@@ -26,8 +26,8 @@ model Objetivo {
   id         String  @id @default(cuid())
   metaId     String
   meta       Meta    @relation(fields: [metaId], references: [id], onDelete: Cascade)
-  title      String
-  title_en   String
+  title      String  @db.Text
+  title_en   String  @db.Text
   color      String  @default("sand")
   weeklyLoad Int     @default(1)
   done       Int     @default(0)

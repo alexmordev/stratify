@@ -267,8 +267,21 @@ function StepApprove({ meta, onApprove, lang }) {
 }
 
 // ─── Step 3: Edit Objectives ──────────────────────────────────────────────────
+function MetaField({ label, value }) {
+  if (!value) return null;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--ink-4)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+        {label}
+      </span>
+      <span style={{ fontSize: 12, color: 'var(--ink-2)', lineHeight: 1.5 }}>{value}</span>
+    </div>
+  );
+}
+
 function ObjetivoRow({ obj, onChange, onRemove, lang }) {
   const [editing, setEditing] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   function handleColorClick(colorId) {
     onChange({ ...obj, color: colorId });
@@ -282,6 +295,7 @@ function ObjetivoRow({ obj, onChange, onRemove, lang }) {
   }
 
   const pal = palById(obj.color);
+  const hasRichFields = obj.tipo || obj.conexion || obj.plazo || obj.siEntonces || obj.seguimiento;
 
   return (
     <div
@@ -294,46 +308,115 @@ function ObjetivoRow({ obj, onChange, onRemove, lang }) {
         gap: 10,
       }}
     >
-      {/* Top row: dot + title + actions */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      {/* Top row: dot + area badge + title + actions */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
         <ColorDot
           data-testid={`obj-color-dot-${obj.id}`}
           color={pal.dot}
           size={10}
+          style={{ marginTop: 3, flexShrink: 0 }}
         />
-        {editing ? (
-          <input
-            value={obj.title}
-            onChange={(e) => onChange({ ...obj, title: e.target.value })}
-            style={{
-              flex: 1,
-              border: '1px solid var(--line)',
-              borderRadius: 6,
-              padding: '4px 8px',
-              fontSize: 14,
-              fontFamily: 'inherit',
-              background: 'var(--bg)',
-              color: 'var(--ink)',
-            }}
-          />
-        ) : (
-          <span style={{ flex: 1, fontSize: 14, color: 'var(--ink)' }}>{obj.title}</span>
-        )}
-        <button
-          type="button"
-          onClick={() => setEditing((v) => !v)}
-          style={{ fontSize: 12, color: 'var(--ink-3)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px' }}
-        >
-          {editing ? t(lang, 'save') : t(lang, 'edit')}
-        </button>
-        <button
-          type="button"
-          onClick={onRemove}
-          style={{ fontSize: 12, color: 'oklch(0.5 0.15 25)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px' }}
-        >
-          {t(lang, 'delete')}
-        </button>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {/* Area + tipo badges */}
+          {(obj.area || obj.tipo) && (
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {obj.area && (
+                <span style={{
+                  fontSize: 10, fontWeight: 600, color: 'var(--ink-3)',
+                  background: 'var(--bg-3, var(--line-2))', borderRadius: 4,
+                  padding: '1px 6px', textTransform: 'uppercase', letterSpacing: '0.06em',
+                }}>
+                  {obj.area}
+                </span>
+              )}
+              {obj.tipo && (
+                <span style={{
+                  fontSize: 10, fontWeight: 600,
+                  color: obj.tipo === 'Aprendizaje' || obj.tipo === 'Learning' ? 'oklch(0.45 0.12 250)' : 'oklch(0.45 0.12 150)',
+                  background: obj.tipo === 'Aprendizaje' || obj.tipo === 'Learning' ? 'oklch(0.95 0.04 250)' : 'oklch(0.95 0.04 150)',
+                  borderRadius: 4, padding: '1px 6px',
+                }}>
+                  {obj.tipo}
+                </span>
+              )}
+              {obj.plazo && (
+                <span style={{
+                  fontSize: 10, color: 'var(--ink-3)',
+                  background: 'var(--bg-3, var(--line-2))', borderRadius: 4,
+                  padding: '1px 6px',
+                }}>
+                  {obj.plazo}
+                </span>
+              )}
+            </div>
+          )}
+          {/* Title */}
+          {editing ? (
+            <textarea
+              value={obj.title}
+              onChange={(e) => onChange({ ...obj, title: e.target.value })}
+              rows={3}
+              style={{
+                border: '1px solid var(--line)',
+                borderRadius: 6,
+                padding: '4px 8px',
+                fontSize: 13,
+                fontFamily: 'inherit',
+                background: 'var(--bg)',
+                color: 'var(--ink)',
+                resize: 'vertical',
+                width: '100%',
+              }}
+            />
+          ) : (
+            <span style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>{obj.title}</span>
+          )}
+        </div>
+        <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+          <button
+            type="button"
+            onClick={() => setEditing((v) => !v)}
+            style={{ fontSize: 11, color: 'var(--ink-3)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px' }}
+          >
+            {editing ? t(lang, 'save') : t(lang, 'edit')}
+          </button>
+          <button
+            type="button"
+            onClick={onRemove}
+            style={{ fontSize: 11, color: 'oklch(0.5 0.15 25)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px' }}
+          >
+            {t(lang, 'delete')}
+          </button>
+        </div>
       </div>
+
+      {/* Rich fields (collapsible) */}
+      {hasRichFields && (
+        <>
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            style={{
+              alignSelf: 'flex-start', fontSize: 11, color: 'var(--ink-3)',
+              background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+              display: 'flex', alignItems: 'center', gap: 4,
+            }}
+          >
+            <span style={{ fontSize: 10 }}>{expanded ? '▲' : '▼'}</span>
+            {expanded ? 'Ocultar detalles' : 'Ver detalles del objetivo'}
+          </button>
+          {expanded && (
+            <div style={{
+              display: 'flex', flexDirection: 'column', gap: 10,
+              borderTop: '1px solid var(--line-2)', paddingTop: 10,
+            }}>
+              <MetaField label="Conexión con la meta" value={obj.conexion} />
+              <MetaField label="Si… Entonces…" value={obj.siEntonces} />
+              <MetaField label="Seguimiento" value={obj.seguimiento} />
+            </div>
+          )}
+        </>
+      )}
 
       {/* Color swatches */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

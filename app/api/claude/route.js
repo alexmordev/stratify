@@ -1,4 +1,4 @@
-import { streamChat, proposeObjetivos, AGENT_SYSTEM_PROMPT } from '@/lib/claude';
+import { streamChat, proposeObjetivos, AGENT_01_SYSTEM_PROMPT } from '@/lib/claude';
 
 export const runtime = 'nodejs';
 
@@ -19,7 +19,7 @@ export async function POST(request) {
     const stream = new ReadableStream({
       async start(controller) {
         try {
-          for await (const chunk of streamChat(messages, AGENT_SYSTEM_PROMPT)) {
+          for await (const chunk of streamChat(messages, AGENT_01_SYSTEM_PROMPT)) {
             controller.enqueue(encoder.encode(chunk));
           }
           controller.close();
