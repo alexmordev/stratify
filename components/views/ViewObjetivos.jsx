@@ -17,7 +17,13 @@ import {
   toggleObjetivoThisWeek,
   toggleObjetivoCompleted,
 } from '@/lib/actions/objetivos';
-import { createTarea, toggleTarea } from '@/lib/actions/tareas';
+import {
+  createTarea,
+  toggleTarea,
+  updateTarea,
+  reorderTareas,
+  deleteTarea,
+} from '@/lib/actions/tareas';
 
 function getLang() {
   if (typeof window === 'undefined') return 'es';
@@ -29,6 +35,19 @@ function dateToInput(date) {
   if (!date) return '';
   const d = new Date(date);
   return d.toISOString().slice(0, 10);
+}
+
+function formatDueDate(date, lang) {
+  if (!date) return '';
+  const d = new Date(date);
+  const mEs = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const mEn = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const months = lang === 'en' ? mEn : mEs;
+  return `${months[d.getUTCMonth()]} ${d.getUTCDate()}`;
+}
+
+function sortTareas(list) {
+  return [...list].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.id.localeCompare(b.id));
 }
 
 const DAY_NAMES = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
@@ -45,6 +64,19 @@ const inputStyle = {
   outline: 'none',
   boxSizing: 'border-box',
 };
+
+const smallInput = {
+  border: '1px solid var(--line)',
+  borderRadius: 6,
+  padding: '4px 6px',
+  fontSize: 12,
+  fontFamily: 'inherit',
+  color: 'var(--ink)',
+  background: 'var(--bg)',
+  outline: 'none',
+};
+
+// ─── Objective edit modal ────────────────────────────────────────────────────
 
 function ModalEditObjetivo({ objetivo, lang, onClose, onSave }) {
   const [form, setForm] = useState({
@@ -244,6 +276,8 @@ function ModalEditObjetivo({ objetivo, lang, onClose, onSave }) {
   );
 }
 
+// ─── Objective delete confirm ─────────────────────────────────────────────────
+
 function ConfirmDeleteObjetivo({ objetivo, lang, onClose, onConfirm }) {
   const [deleting, setDeleting] = useState(false);
 
@@ -299,11 +333,131 @@ function ConfirmDeleteObjetivo({ objetivo, lang, onClose, onConfirm }) {
   );
 }
 
-function AddTareaForm({ objId, lang, onAdd, onCancel }) {
+// ─── Inline task edit form ────────────────────────────────────────────────────
+
+function EditTareaForm({ tarea, lang, onSave, onCancel, onDelete }) {
+  const [form, setForm] = useState({
+    title: tarea.title,
+    sessions: tarea.sessions ?? 1,
+    dueDate: tarea.dueDate ? dateToInput(tarea.dueDate) : '',
+    day: tarea.day,
+    start: tarea.start,
+    dur: tarea.dur,
+  });
+  const [saving, setSaving] = useState(false);
+
+  function set(k, v) { setForm((p) => ({ ...p, [k]: v })); }
+
+  async function handleSave(e) {
+    e.preventDefault();
+    if (!form.title.trim()) return;
+    setSaving(true);
+    try {
+      await onSave({
+        title: form.title.trim(),
+        title_en: form.title.trim(),
+        sessions: Number(form.sessions) || 1,
+        dueDate: form.dueDate || null,
+        day: Number(form.day),
+        start: Number(form.start),
+        dur: Number(form.dur),
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form
+      onSubmit={handleSave}
+      style={{
+        display: 'flex', flexDirection: 'column', gap: 6,
+        padding: '8px 0 6px',
+        borderTop: '1px solid var(--line-2)',
+      }}
+    >
+      <input
+        autoFocus
+        value={form.title}
+        onChange={(e) => set('title', e.target.value)}
+        style={{
+          ...smallInput,
+          width: '100%', boxSizing: 'border-box',
+          padding: '5px 8px', fontSize: 13,
+        }}
+      />
+      <div style={{ display: 'flex', gap: 5, alignItems: 'center', flexWrap: 'wrap' }}>
+        <select
+          value={form.day}
+          onChange={(e) => set('day', e.target.value)}
+          style={smallInput}
+        >
+          {DAY_NAMES.map((name, i) => (
+            <option key={i} value={i}>{name}</option>
+          ))}
+        </select>
+        <input
+          type="number" min={0} max={23} step={0.5}
+          value={form.start}
+          onChange={(e) => set('start', e.target.value)}
+          placeholder={lang === 'en' ? 'Hour' : 'Hora'}
+          style={{ ...smallInput, width: 58 }}
+        />
+        <input
+          type="number" min={0.5} max={8} step={0.5}
+          value={form.dur}
+          onChange={(e) => set('dur', e.target.value)}
+          placeholder="Dur"
+          style={{ ...smallInput, width: 52 }}
+        />
+        <input
+          type="number" min={1} max={8}
+          value={form.sessions}
+          onChange={(e) => set('sessions', e.target.value)}
+          title={t(lang, 'sessions')}
+          placeholder={t(lang, 'sessions')}
+          style={{ ...smallInput, width: 52 }}
+        />
+        <input
+          type="date"
+          value={form.dueDate}
+          onChange={(e) => set('dueDate', e.target.value)}
+          title={t(lang, 'dueDate')}
+          style={smallInput}
+        />
+        <div style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
+          <button
+            type="button"
+            onClick={onDelete}
+            title={t(lang, 'deleteTask')}
+            style={{
+              background: 'none', border: 'none', padding: '2px 4px',
+              cursor: 'pointer', color: 'var(--ink-4)', display: 'inline-flex',
+            }}
+          >
+            <Icon name="trash" size={12} />
+          </button>
+          <Btn size="sm" variant="ghost" type="button" onClick={onCancel}>
+            {t(lang, 'cancel')}
+          </Btn>
+          <Btn size="sm" variant="primary" type="submit" disabled={saving || !form.title.trim()}>
+            {t(lang, 'save')}
+          </Btn>
+        </div>
+      </div>
+    </form>
+  );
+}
+
+// ─── Add task form ────────────────────────────────────────────────────────────
+
+function AddTareaForm({ objId, lang, nextSortOrder, onAdd, onCancel }) {
   const [title, setTitle] = useState('');
   const [day, setDay] = useState(0);
   const [start, setStart] = useState(9);
   const [dur, setDur] = useState(1);
+  const [sessions, setSessions] = useState(1);
+  const [dueDate, setDueDate] = useState('');
   const [saving, setSaving] = useState(false);
 
   async function handleSubmit(e) {
@@ -318,6 +472,9 @@ function AddTareaForm({ objId, lang, onAdd, onCancel }) {
         day: Number(day),
         start: Number(start),
         dur: Number(dur),
+        sessions: Number(sessions) || 1,
+        dueDate: dueDate || null,
+        sortOrder: nextSortOrder,
       });
       onAdd(newTarea);
     } finally {
@@ -330,9 +487,7 @@ function AddTareaForm({ objId, lang, onAdd, onCancel }) {
       data-testid="add-tarea-form"
       onSubmit={handleSubmit}
       style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 8,
+        display: 'flex', flexDirection: 'column', gap: 8,
         padding: '10px 0 2px',
         borderTop: '1px solid var(--line-2)',
       }}
@@ -343,73 +498,51 @@ function AddTareaForm({ objId, lang, onAdd, onCancel }) {
         onChange={(e) => setTitle(e.target.value)}
         placeholder={lang === 'en' ? 'Task title…' : 'Título de tarea…'}
         style={{
-          border: '1px solid var(--line)',
-          borderRadius: 6,
-          padding: '5px 8px',
-          fontSize: 13,
-          fontFamily: 'inherit',
-          color: 'var(--ink)',
-          background: 'var(--bg)',
-          outline: 'none',
-          width: '100%',
-          boxSizing: 'border-box',
+          border: '1px solid var(--line)', borderRadius: 6,
+          padding: '5px 8px', fontSize: 13,
+          fontFamily: 'inherit', color: 'var(--ink)',
+          background: 'var(--bg)', outline: 'none',
+          width: '100%', boxSizing: 'border-box',
         }}
       />
-      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: 5, alignItems: 'center', flexWrap: 'wrap' }}>
         <select
           value={day}
           onChange={(e) => setDay(e.target.value)}
-          style={{
-            border: '1px solid var(--line)',
-            borderRadius: 6,
-            padding: '4px 6px',
-            fontSize: 12,
-            fontFamily: 'inherit',
-            color: 'var(--ink)',
-            background: 'var(--bg)',
-          }}
+          style={smallInput}
         >
           {DAY_NAMES.map((name, i) => (
             <option key={i} value={i}>{name}</option>
           ))}
         </select>
         <input
-          type="number"
+          type="number" min={0} max={23} step={0.5}
           value={start}
           onChange={(e) => setStart(e.target.value)}
-          min={0}
-          max={23}
-          step={0.5}
-          placeholder="Hora"
-          style={{
-            border: '1px solid var(--line)',
-            borderRadius: 6,
-            padding: '4px 6px',
-            fontSize: 12,
-            fontFamily: 'inherit',
-            color: 'var(--ink)',
-            background: 'var(--bg)',
-            width: 60,
-          }}
+          placeholder={lang === 'en' ? 'Hour' : 'Hora'}
+          style={{ ...smallInput, width: 58 }}
         />
         <input
-          type="number"
+          type="number" min={0.5} max={8} step={0.5}
           value={dur}
           onChange={(e) => setDur(e.target.value)}
-          min={0.5}
-          max={8}
-          step={0.5}
           placeholder="Dur"
-          style={{
-            border: '1px solid var(--line)',
-            borderRadius: 6,
-            padding: '4px 6px',
-            fontSize: 12,
-            fontFamily: 'inherit',
-            color: 'var(--ink)',
-            background: 'var(--bg)',
-            width: 54,
-          }}
+          style={{ ...smallInput, width: 52 }}
+        />
+        <input
+          type="number" min={1} max={8}
+          value={sessions}
+          onChange={(e) => setSessions(e.target.value)}
+          title={t(lang, 'sessions')}
+          placeholder={t(lang, 'sessions')}
+          style={{ ...smallInput, width: 52 }}
+        />
+        <input
+          type="date"
+          value={dueDate}
+          onChange={(e) => setDueDate(e.target.value)}
+          title={t(lang, 'dueDate')}
+          style={smallInput}
         />
         <div style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
           <Btn size="sm" variant="ghost" onClick={onCancel} type="button">
@@ -424,9 +557,21 @@ function AddTareaForm({ objId, lang, onAdd, onCancel }) {
   );
 }
 
-function ObjetivoCard({ objetivo, tareas: initialTareas, lang, onTareaToggle, onTareaAdd, onThisWeekToggle, onEdit, onDelete, onComplete }) {
+// ─── Objective card ───────────────────────────────────────────────────────────
+
+function ObjetivoCard({
+  objetivo,
+  tareas: initialTareas,
+  lang,
+  onTareaToggle,
+  onTareaAdd,
+  onThisWeekToggle,
+  onEdit,
+  onDelete,
+  onComplete,
+}) {
   const [collapsed, setCollapsed] = useState(false);
-  const [tareas, setTareas] = useState(initialTareas);
+  const [tareas, setTareas] = useState(() => sortTareas(initialTareas));
   const [showAddForm, setShowAddForm] = useState(false);
   const [thisWeek, setThisWeek] = useState(objetivo.thisWeek ?? false);
   const [completed, setCompleted] = useState(Boolean(objetivo.done));
@@ -434,12 +579,17 @@ function ObjetivoCard({ objetivo, tareas: initialTareas, lang, onTareaToggle, on
   const [togglingComplete, setTogglingComplete] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
+  const [editingTareaId, setEditingTareaId] = useState(null);
+  const [dragId, setDragId] = useState(null);
+  const [dropTarget, setDropTarget] = useState(null);
 
   const pal = palById(objetivo.color);
   const title = lang === 'en' && objetivo.title_en ? objetivo.title_en : objetivo.title;
   const progress = objProgress(objetivo.id, tareas);
   const doneTareas = tareas.filter((t) => t.done).length;
   const totalTareas = tareas.length;
+
+  // ── Objective handlers ──────────────────────────────────────────────────────
 
   async function handleThisWeekToggle() {
     if (togglingWeek) return;
@@ -471,6 +621,8 @@ function ObjetivoCard({ objetivo, tareas: initialTareas, lang, onTareaToggle, on
     }
   }
 
+  // ── Task handlers ───────────────────────────────────────────────────────────
+
   async function handleToggleTarea(tareaId) {
     setTareas((prev) =>
       prev.map((t) => (t.id === tareaId ? { ...t, done: !t.done } : t))
@@ -486,10 +638,85 @@ function ObjetivoCard({ objetivo, tareas: initialTareas, lang, onTareaToggle, on
   }
 
   function handleTareaAdded(newTarea) {
-    setTareas((prev) => [...prev, newTarea]);
+    setTareas((prev) => sortTareas([...prev, newTarea]));
     setShowAddForm(false);
     onTareaAdd?.(newTarea);
   }
+
+  async function handleEditTarea(id, data) {
+    const original = tareas.find((t) => t.id === id);
+    setTareas((prev) => prev.map((t) => (t.id === id ? { ...t, ...data } : t)));
+    setEditingTareaId(null);
+    try {
+      await updateTarea(id, data);
+    } catch {
+      if (original) setTareas((prev) => prev.map((t) => (t.id === id ? original : t)));
+    }
+  }
+
+  async function handleDeleteTarea(id) {
+    const saved = [...tareas];
+    setTareas((prev) => prev.filter((t) => t.id !== id));
+    setEditingTareaId(null);
+    try {
+      await deleteTarea(id);
+    } catch {
+      setTareas(saved);
+    }
+  }
+
+  async function handleClearDate(id) {
+    const original = tareas.find((t) => t.id === id)?.dueDate;
+    setTareas((prev) => prev.map((t) => (t.id === id ? { ...t, dueDate: null } : t)));
+    try {
+      await updateTarea(id, { dueDate: null });
+    } catch {
+      setTareas((prev) => prev.map((t) => (t.id === id ? { ...t, dueDate: original } : t)));
+    }
+  }
+
+  // ── Drag and drop ───────────────────────────────────────────────────────────
+
+  function handleDragStart(e, id) {
+    setDragId(id);
+    e.dataTransfer.effectAllowed = 'move';
+  }
+
+  function handleDragOver(e, id) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const rect = e.currentTarget.getBoundingClientRect();
+    const side = e.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+    setDropTarget({ id, side });
+  }
+
+  function handleDragEnd() {
+    setDragId(null);
+    setDropTarget(null);
+  }
+
+  function handleDrop(e, id) {
+    e.preventDefault();
+    if (!dragId || dragId === id) { handleDragEnd(); return; }
+
+    const side = dropTarget?.side ?? 'after';
+    const list = [...tareas];
+    const srcIdx = list.findIndex((t) => t.id === dragId);
+    const tgtIdx = list.findIndex((t) => t.id === id);
+
+    let insertAt = side === 'before' ? tgtIdx : tgtIdx + 1;
+    if (srcIdx < insertAt) insertAt--;
+
+    const [item] = list.splice(srcIdx, 1);
+    list.splice(insertAt, 0, item);
+
+    const withOrder = list.map((t, i) => ({ ...t, sortOrder: i }));
+    setTareas(withOrder);
+    handleDragEnd();
+    reorderTareas(withOrder.map(({ id: tid, sortOrder }) => ({ id: tid, sortOrder }))).catch(() => {});
+  }
+
+  // ── Styles ──────────────────────────────────────────────────────────────────
 
   const iconBtnStyle = {
     background: 'none',
@@ -537,7 +764,6 @@ function ObjetivoCard({ objetivo, tareas: initialTareas, lang, onTareaToggle, on
             {title}
           </span>
 
-          {/* Complete toggle */}
           <button
             type="button"
             title={completed ? t(lang, 'markPending') : t(lang, 'markCompleted')}
@@ -552,7 +778,6 @@ function ObjetivoCard({ objetivo, tareas: initialTareas, lang, onTareaToggle, on
             <Icon name="check" size={13} />
           </button>
 
-          {/* Edit */}
           <button
             type="button"
             title={t(lang, 'editObjective')}
@@ -562,7 +787,6 @@ function ObjetivoCard({ objetivo, tareas: initialTareas, lang, onTareaToggle, on
             <Icon name="edit" size={13} />
           </button>
 
-          {/* Delete */}
           <button
             type="button"
             title={t(lang, 'deleteObjective')}
@@ -572,7 +796,6 @@ function ObjetivoCard({ objetivo, tareas: initialTareas, lang, onTareaToggle, on
             <Icon name="trash" size={13} />
           </button>
 
-          {/* This week */}
           <button
             data-testid={`thisweek-btn-${objetivo.id}`}
             type="button"
@@ -588,7 +811,6 @@ function ObjetivoCard({ objetivo, tareas: initialTareas, lang, onTareaToggle, on
             <Icon name="calendar" size={13} />
           </button>
 
-          {/* Collapse */}
           <button
             data-testid={`collapse-btn-${objetivo.id}`}
             type="button"
@@ -625,25 +847,70 @@ function ObjetivoCard({ objetivo, tareas: initialTareas, lang, onTareaToggle, on
         {!collapsed && (
           <div
             data-testid={`task-list-${objetivo.id}`}
-            style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
+            style={{ display: 'flex', flexDirection: 'column', gap: 0 }}
           >
             {tareas.map((tarea) => {
               const tareaTitle = lang === 'en' && tarea.title_en ? tarea.title_en : tarea.title;
+              const isEditing = editingTareaId === tarea.id;
+              const isDragging = dragId === tarea.id;
+              const isDropBefore = dropTarget?.id === tarea.id && dropTarget.side === 'before';
+              const isDropAfter = dropTarget?.id === tarea.id && dropTarget.side === 'after';
+
+              if (isEditing) {
+                return (
+                  <EditTareaForm
+                    key={tarea.id}
+                    tarea={tarea}
+                    lang={lang}
+                    onSave={(data) => handleEditTarea(tarea.id, data)}
+                    onCancel={() => setEditingTareaId(null)}
+                    onDelete={() => handleDeleteTarea(tarea.id)}
+                  />
+                );
+              }
+
               return (
                 <div
                   key={tarea.id}
                   data-testid={`tarea-row-${tarea.id}`}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, tarea.id)}
+                  onDragOver={(e) => handleDragOver(e, tarea.id)}
+                  onDragEnd={handleDragEnd}
+                  onDrop={(e) => handleDrop(e, tarea.id)}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 8,
+                    gap: 7,
+                    padding: '3px 0',
+                    opacity: isDragging ? 0.35 : 1,
+                    borderTop: isDropBefore ? `2px solid ${pal.dot}` : '2px solid transparent',
+                    borderBottom: isDropAfter ? `2px solid ${pal.dot}` : '2px solid transparent',
+                    transition: 'opacity .15s',
+                    userSelect: 'none',
                   }}
                 >
+                  {/* Drag handle */}
+                  <span
+                    style={{
+                      cursor: 'grab',
+                      color: 'var(--ink-4)',
+                      display: 'flex',
+                      opacity: 0.45,
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Icon name="drag" size={11} />
+                  </span>
+
+                  {/* Checkbox */}
                   <Check
                     checked={tarea.done}
                     onChange={() => handleToggleTarea(tarea.id)}
                     size={15}
                   />
+
+                  {/* Title */}
                   <span
                     style={{
                       flex: 1,
@@ -658,12 +925,80 @@ function ObjetivoCard({ objetivo, tareas: initialTareas, lang, onTareaToggle, on
                   >
                     {tareaTitle}
                   </span>
-                  <span
-                    className="mono"
-                    style={{ fontSize: 11, color: 'var(--ink-4)', flexShrink: 0 }}
+
+                  {/* Sessions dots */}
+                  {(tarea.sessions ?? 1) > 1 && (
+                    <span
+                      style={{
+                        display: 'flex',
+                        gap: 2,
+                        alignItems: 'center',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {Array.from({ length: Math.min(tarea.sessions, 5) }).map((_, i) => (
+                        <span
+                          key={i}
+                          style={{
+                            width: 3.5,
+                            height: 3.5,
+                            borderRadius: '50%',
+                            background: 'var(--ink-4)',
+                            display: 'block',
+                          }}
+                        />
+                      ))}
+                      {tarea.sessions > 5 && (
+                        <span style={{ fontSize: 9, color: 'var(--ink-4)' }}>
+                          +{tarea.sessions - 5}
+                        </span>
+                      )}
+                    </span>
+                  )}
+
+                  {/* Due date chip — click clears the date */}
+                  {tarea.dueDate && (
+                    <button
+                      type="button"
+                      onClick={() => handleClearDate(tarea.id)}
+                      title={t(lang, 'clearDate')}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 3,
+                        background: 'none',
+                        border: '1px solid var(--line)',
+                        borderRadius: 4,
+                        padding: '1px 5px',
+                        fontSize: 10.5,
+                        color: 'var(--ink-4)',
+                        cursor: 'pointer',
+                        fontFamily: 'inherit',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Icon name="calendar" size={9} />
+                      {formatDueDate(tarea.dueDate, lang)}
+                    </button>
+                  )}
+
+                  {/* Edit button */}
+                  <button
+                    type="button"
+                    onClick={() => setEditingTareaId(tarea.id)}
+                    title={t(lang, 'editTask')}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: 2,
+                      cursor: 'pointer',
+                      color: 'var(--ink-4)',
+                      display: 'inline-flex',
+                      flexShrink: 0,
+                    }}
                   >
-                    {DAY_NAMES[tarea.day] ?? tarea.day}
-                  </span>
+                    <Icon name="edit" size={11} />
+                  </button>
                 </div>
               );
             })}
@@ -672,6 +1007,7 @@ function ObjetivoCard({ objetivo, tareas: initialTareas, lang, onTareaToggle, on
               <AddTareaForm
                 objId={objetivo.id}
                 lang={lang}
+                nextSortOrder={tareas.length}
                 onAdd={handleTareaAdded}
                 onCancel={() => setShowAddForm(false)}
               />
@@ -730,13 +1066,23 @@ function ObjetivoCard({ objetivo, tareas: initialTareas, lang, onTareaToggle, on
   );
 }
 
-function MetaGroup({ meta, objetivos, allTareas, lang, onObjetivoAdd, onObjetivoEdit, onObjetivoDelete, onObjetivoComplete }) {
+// ─── Meta group ───────────────────────────────────────────────────────────────
+
+function MetaGroup({
+  meta,
+  objetivos,
+  allTareas,
+  lang,
+  onObjetivoAdd,
+  onObjetivoEdit,
+  onObjetivoDelete,
+  onObjetivoComplete,
+}) {
   const metaTitle = lang === 'en' && meta.title_en ? meta.title_en : meta.title;
   const progress = metaProgress(meta.id, objetivos);
 
   return (
     <section data-testid={`meta-group-${meta.id}`} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* Meta header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
         <h2
           className="serif"
@@ -760,7 +1106,6 @@ function MetaGroup({ meta, objetivos, allTareas, lang, onObjetivoAdd, onObjetivo
         />
       </div>
 
-      {/* Objetivos grid */}
       <div
         style={{
           display: 'grid',
@@ -784,11 +1129,12 @@ function MetaGroup({ meta, objetivos, allTareas, lang, onObjetivoAdd, onObjetivo
         })}
       </div>
 
-      {/* Add objetivo button */}
       <AddObjetivoButton metaId={meta.id} lang={lang} onAdd={onObjetivoAdd} />
     </section>
   );
 }
+
+// ─── Add objective button ─────────────────────────────────────────────────────
 
 function AddObjetivoButton({ metaId, lang, onAdd }) {
   const [hovered, setHovered] = useState(false);
@@ -881,6 +1227,8 @@ function AddObjetivoButton({ metaId, lang, onAdd }) {
   );
 }
 
+// ─── Empty state ──────────────────────────────────────────────────────────────
+
 function EmptyState({ message }) {
   return (
     <div
@@ -899,7 +1247,13 @@ function EmptyState({ message }) {
   );
 }
 
-export default function ViewObjetivos({ metas: initialMetas, objetivos: initialObjetivos, tareas: initialTareas }) {
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+export default function ViewObjetivos({
+  metas: initialMetas,
+  objetivos: initialObjetivos,
+  tareas: initialTareas,
+}) {
   const [lang, setLang] = useState('es');
   const [metas] = useState(initialMetas);
   const [objetivos, setObjetivos] = useState(initialObjetivos);
@@ -907,11 +1261,7 @@ export default function ViewObjetivos({ metas: initialMetas, objetivos: initialO
 
   useEffect(() => {
     setLang(getLang());
-
-    function handleLangChange() {
-      setLang(getLang());
-    }
-
+    function handleLangChange() { setLang(getLang()); }
     window.addEventListener('langchange', handleLangChange);
     return () => window.removeEventListener('langchange', handleLangChange);
   }, []);

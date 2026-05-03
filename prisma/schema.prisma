@@ -61,15 +61,18 @@ model Objetivo {
 }
 
 model Tarea {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   objId     String
-  objetivo  Objetivo @relation(fields: [objId], references: [id], onDelete: Cascade)
+  objetivo  Objetivo  @relation(fields: [objId], references: [id], onDelete: Cascade)
   title     String
   title_en  String
   day       Int
   start     Float
   dur       Float
-  done      Boolean  @default(false)
+  done      Boolean   @default(false)
   subtasks  Json?
-  createdAt DateTime @default(now())
+  sessions  Int       @default(1)
+  dueDate   DateTime?
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
 }
