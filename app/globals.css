@@ -85,3 +85,45 @@ input[type='checkbox'] {
   -webkit-appearance: none;
   appearance: none;
 }
+
+/* Pulse animation for active meta dots */
+@keyframes pulseDot {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+.pulse {
+  animation: pulseDot 1.6s ease-in-out infinite;
+}
+
+/* Fade-in-up animation for modals */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-up {
+  animation: fadeInUp 0.25s ease both;
+}
+
+/* Keyboard shortcut badge */
+.kbd {
+  font-family: var(--font-mono), 'IBM Plex Mono', monospace;
+  font-size: 10.5px;
+  padding: 1px 5px;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  color: var(--ink-2);
+  background: var(--bg-2);
+}
+
+/* Drag handle dots pattern */
+.drag-dots {
+  background-image: radial-gradient(var(--ink-4) 1px, transparent 1px);
+  background-size: 3px 3px;
+  background-position: 0 0;
+}
+
+/* Prevent text selection during drag */
+.no-select {
+  user-select: none;
+}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Donut from '@/components/ui/Donut';
 import ProgressBar from '@/components/ui/ProgressBar';
 import ColorDot from '@/components/ui/ColorDot';
@@ -15,6 +16,7 @@ import { createObjetivo, updateObjetivo, deleteObjetivo } from '@/lib/actions/ob
 import { toggleTarea, reorderTareas, unscheduleTarea } from '@/lib/actions/tareas';
 import { toggleHitoDone, createHito } from '@/lib/actions/hitos';
 import WizardAgent from '@/components/modals/WizardAgent';
+import GenerateObjetivosModal from '@/components/modals/GenerateObjetivosModal';
 
 function getLang() {
   if (typeof window === 'undefined') return 'es';
@@ -355,7 +357,9 @@ function ObjectiveCard({ objetivo, allTareas, lang, onTaskToggle, onTaskUnschedu
   );
 }
 
-function HitoRow({ hito, last, lang, onToggle }) {
+function HitoRow({ hito, last, lang, onToggle, onGenerate }) {
+  const [confirming, setConfirming] = useState(false);
+  const hasObjetivos = (hito._count?.objetivos ?? 0) > 0;
   const d = hito.fecha_objetivo ? new Date(hito.fecha_objetivo) : null;
   const today = new Date(); today.setHours(0,0,0,0);
   const diff = d ? Math.round((d - today) / 86400000) : null;
@@ -401,7 +405,7 @@ function HitoRow({ hito, last, lang, onToggle }) {
       </div>
       <div style={{
         padding: '4px 14px 18px 0',
-        display: 'grid', gridTemplateColumns: '1fr auto auto',
+        display: 'grid', gridTemplateColumns: '1fr auto auto auto',
         gap: 14, alignItems: 'center',
       }}>
         <button
@@ -430,16 +434,63 @@ function HitoRow({ hito, last, lang, onToggle }) {
         }}>
           {relative}
         </span>
+        {!confirming ? (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setConfirming(true); }}
+            title={lang === 'es' ? 'Generar objetivos' : 'Generate objectives'}
+            style={{
+              border: `1px solid ${hasObjetivos ? 'oklch(0.62 0.14 145)' : 'var(--line)'}`,
+              background: hasObjetivos ? 'oklch(0.96 0.04 145)' : 'transparent',
+              borderRadius: 5, padding: '2px 5px', cursor: 'pointer',
+              fontSize: 11,
+              color: hasObjetivos ? 'oklch(0.42 0.12 145)' : 'var(--ink-3)',
+              lineHeight: 1,
+            }}
+          >
+            ⚡
+          </button>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ fontSize: 10.5, color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>
+              {lang === 'es' ? '¿Generar?' : 'Generate?'}
+            </span>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setConfirming(false); onGenerate?.(hito); }}
+              style={{
+                border: 'none', background: 'oklch(0.62 0.14 145)',
+                color: 'white', borderRadius: 4,
+                padding: '1px 6px', cursor: 'pointer', fontSize: 11,
+              }}
+            >
+              ✓
+            </button>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setConfirming(false); }}
+              style={{
+                border: '1px solid var(--line)', background: 'transparent',
+                color: 'var(--ink-3)', borderRadius: 4,
+                padding: '1px 6px', cursor: 'pointer', fontSize: 11,
+              }}
+            >
+              ✗
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
 export default function ViewWorkspace({ metas: initialMetas, objetivos: initialObjetivos, tareas: initialTareas }) {
+  const router = useRouter();
   const [lang, setLang] = useState('es');
   const [metas, setMetas] = useState(initialMetas);
   const [tareas, setTareas] = useState(initialTareas);
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [generateModal, setGenerateModal] = useState(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -526,6 +577,10 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
       ),
     })));
     try { await toggleHitoDone(hitoId); } catch { /* revert would need refetch */ }
+  }
+
+  function handleGenerateObjetivos(hito) {
+    setGenerateModal({ hito, meta: selectedMeta });
   }
 
   async function handleAddHito(metaId) {
@@ -784,6 +839,7 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
                         last={i === arr.length - 1}
                         lang={lang}
                         onToggle={handleToggleHito}
+                        onGenerate={handleGenerateObjetivos}
                       />
                     ))
                 )}
@@ -795,6 +851,15 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
 
       {wizardOpen && (
         <WizardAgent onClose={() => setWizardOpen(false)} />
+      )}
+
+      {generateModal && (
+        <GenerateObjetivosModal
+          hito={generateModal.hito}
+          meta={generateModal.meta}
+          onClose={() => setGenerateModal(null)}
+          onSaved={() => { setGenerateModal(null); router.refresh(); }}
+        />
       )}
     </div>
   );

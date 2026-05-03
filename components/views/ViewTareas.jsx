@@ -7,7 +7,7 @@ import Btn from '@/components/ui/Btn';
 import Icon from '@/components/ui/Icon';
 import { t } from '@/lib/i18n';
 import { palById } from '@/lib/palette';
-import { toggleTarea, moveTarea, createTarea } from '@/lib/actions/tareas';
+import { toggleTarea, moveTarea, createTarea, scheduleTarea, unscheduleTarea } from '@/lib/actions/tareas';
 
 const SLOT_H = 44;
 const HOUR_START = 7;
@@ -63,7 +63,7 @@ function TaskCard({ tarea, onToggle, onDragStart, columnDate }) {
 
   function handleDragStart(e) {
     setDragging(true);
-    onDragStart(tarea.id);
+    onDragStart(tarea.id, 'calendar');
   }
 
   function handleDragEnd() {
@@ -140,6 +140,88 @@ function TaskCard({ tarea, onToggle, onDragStart, columnDate }) {
   );
 }
 
+function BacklogCard({ tarea, lang, onDragStart, onDragEnd }) {
+  const pal = palById(tarea.objetivo?.color ?? 'sand');
+  const [dragging, setDragging] = useState(false);
+  const objTitle = lang === 'en' && tarea.objetivo?.title_en
+    ? tarea.objetivo.title_en
+    : tarea.objetivo?.title ?? '';
+
+  function fmtDueShort(iso) {
+    if (!iso) return '—';
+    const d = new Date(typeof iso === 'string' ? iso + 'T00:00:00' : iso);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const diff = Math.round((d - today) / 86400000);
+    if (diff < 0) return lang === 'es' ? 'Vencida' : 'Overdue';
+    if (diff === 0) return t(lang, 'today');
+    if (diff === 1) return lang === 'es' ? 'Mañana' : 'Tomorrow';
+    if (diff < 7) return `${diff}d`;
+    const MONTHS_S = lang === 'es'
+      ? ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
+      : ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${d.getDate()} ${MONTHS_S[d.getMonth()]}`;
+  }
+
+  const dueLabel = fmtDueShort(tarea.dueDate);
+  const isOverdue = dueLabel === (lang === 'es' ? 'Vencida' : 'Overdue');
+
+  return (
+    <div
+      draggable
+      onDragStart={(e) => {
+        setDragging(true);
+        onDragStart(tarea.id, 'backlog');
+        e.dataTransfer.setData('text/task', tarea.id);
+        e.dataTransfer.effectAllowed = 'move';
+      }}
+      onDragEnd={() => {
+        setDragging(false);
+        onDragEnd();
+      }}
+      style={{
+        background: 'white',
+        border: '1px solid var(--line-2)',
+        borderLeft: `3px solid ${pal.dot}`,
+        borderRadius: 8,
+        padding: '8px 10px',
+        cursor: 'grab',
+        opacity: dragging ? 0.4 : 1,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 5,
+        userSelect: 'none',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <Icon name="drag" size={11} />
+        <span style={{ flex: 1, fontSize: 12.5, fontWeight: 500, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {tarea.title}
+        </span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <span style={{ width: 6, height: 6, borderRadius: '50%', background: pal.dot, display: 'block', flexShrink: 0 }} />
+        <span style={{ fontSize: 10.5, color: 'var(--ink-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+          {objTitle}
+        </span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div title={t(lang, 'pomodoro')} style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          {Array.from({ length: Math.min(tarea.sessions ?? 0, 6) }).map((_, i) => (
+            <span key={i} style={{ width: 3, height: 9, borderRadius: 1, background: pal.dot, opacity: 0.55 }} />
+          ))}
+          <span className="mono" style={{ fontSize: 10, marginLeft: 3, color: 'var(--ink-3)' }}>
+            {tarea.sessions ?? 0}×25
+          </span>
+        </div>
+        <span style={{ flex: 1 }} />
+        <span className="mono" style={{ fontSize: 10, color: isOverdue ? 'oklch(0.55 0.16 25)' : 'var(--ink-3)' }}>
+          {dueLabel}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function DayColumn({
   date,
   tareas,
@@ -150,19 +232,12 @@ function DayColumn({
   onDragStart,
   onDrop,
   onSlotClick,
+  dropHint,
+  setDropHint,
 }) {
   const dayKey = DAY_KEYS[date.getDay() === 0 ? 6 : date.getDay() - 1];
   const dayLabel = t(lang, dayKey);
   const dateNum = formatDate(date);
-
-  function handleDragOver(e) {
-    e.preventDefault();
-  }
-
-  function handleDrop(e) {
-    e.preventDefault();
-    onDrop(dayIndex);
-  }
 
   function handleColumnClick(e) {
     if (e.target.closest('[data-testid^="task-card-"]')) return;
@@ -170,6 +245,30 @@ function DayColumn({
     const relY = e.clientY - rect.top;
     const start = HOUR_START + Math.floor((relY / SLOT_H) * 2) / 2;
     onSlotClick(dayIndex, start);
+  }
+
+  function handleTimeGridDragOver(e) {
+    e.preventDefault();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const relY = Math.max(0, e.clientY - rect.top);
+    const hour = Math.max(HOUR_START, Math.min(HOUR_END, HOUR_START + Math.floor(relY / SLOT_H)));
+    setDropHint({ day: dayIndex, hour });
+  }
+
+  function handleTimeGridDragLeave(e) {
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      setDropHint(prev => (prev?.day === dayIndex ? null : prev));
+    }
+  }
+
+  function handleTimeGridDrop(e) {
+    e.preventDefault();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const relY = Math.max(0, e.clientY - rect.top);
+    const hour = Math.max(HOUR_START, Math.min(HOUR_END, HOUR_START + Math.floor(relY / SLOT_H)));
+    const snapped = Math.round(hour * 2) / 2;
+    onDrop(dayIndex, snapped);
+    setDropHint(null);
   }
 
   return (
@@ -207,8 +306,9 @@ function DayColumn({
         role="region"
         aria-label={`column-${dayIndex}`}
         onClick={handleColumnClick}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop}
+        onDragOver={handleTimeGridDragOver}
+        onDragLeave={handleTimeGridDragLeave}
+        onDrop={handleTimeGridDrop}
         style={{
           position: 'relative',
           height: (HOUR_END - HOUR_START + 1) * SLOT_H,
@@ -216,6 +316,23 @@ function DayColumn({
           cursor: 'crosshair',
         }}
       >
+        {/* Drop hint highlight */}
+        {dropHint?.day === dayIndex && dropHint.hour !== undefined && (
+          <div
+            style={{
+              position: 'absolute',
+              top: (dropHint.hour - HOUR_START) * SLOT_H,
+              left: 0,
+              right: 0,
+              height: SLOT_H,
+              background: 'oklch(0.95 0.02 250)',
+              pointerEvents: 'none',
+              zIndex: 0,
+              borderRadius: 2,
+            }}
+          />
+        )}
+
         {/* Hour lines */}
         {HOURS.map((h) => (
           <div
@@ -375,13 +492,16 @@ function QuickCreateModal({ dayIndex, start, objetivos, lang, onConfirm, onCance
   );
 }
 
-export default function ViewTareas({ tareas: initialTareas, objetivos }) {
+export default function ViewTareas({ tareas: initialTareas, objetivos, metas = [] }) {
   const [lang, setLang] = useState('es');
   const [view, setView] = useState('week');
   const [anchorDate, setAnchorDate] = useState(() => new Date());
   const [tareas, setTareas] = useState(initialTareas ?? []);
   const [modal, setModal] = useState(null);
+  const [dropHint, setDropHint] = useState(null);
+  const [filterObj, setFilterObj] = useState('all');
   const draggingId = useRef(null);
+  const draggingSource = useRef(null);
 
   useEffect(() => {
     setLang(getLang());
@@ -427,31 +547,51 @@ export default function ViewTareas({ tareas: initialTareas, objetivos }) {
 
   const columns = getColumns();
 
+  // Derived backlog data
+  const activeMetaIds = new Set(metas.filter(m => m.active).map(m => m.id));
+  const activeObjetivos = objetivos.filter(o => activeMetaIds.has(o.metaId));
+  const activeObjIds = new Set(activeObjetivos.map(o => o.id));
+
+  const backlog = tareas
+    .filter(t => (t.day === null || t.day === undefined) && !t.done)
+    .filter(t => filterObj === 'all' ? activeObjIds.has(t.objId) : t.objId === filterObj)
+    .sort((a, b) => {
+      const ad = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+      const bd = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+      return ad - bd;
+    });
+
   function getTareasForColumn(colDate) {
     const dayOfWeek = colDate.getDay() === 0 ? 6 : colDate.getDay() - 1;
     return tareas.filter((t) => t.day === dayOfWeek);
   }
 
-  function handleDragStart(id) {
+  function handleDragStart(id, source) {
     draggingId.current = id;
+    draggingSource.current = source;
   }
 
-  async function handleDrop(colIndex) {
+  function handleDragEnd() {
+    // Reset if drop didn't fire (e.g. dropped outside)
+  }
+
+  async function handleDrop(colIndex, hour) {
     const id = draggingId.current;
+    const source = draggingSource.current;
     if (id == null) return;
     draggingId.current = null;
+    draggingSource.current = null;
+    setDropHint(null);
 
     const colDate = columns[colIndex];
     const dayOfWeek = colDate.getDay() === 0 ? 6 : colDate.getDay() - 1;
 
-    setTareas((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, day: dayOfWeek } : t))
-    );
-
-    try {
-      await moveTarea(id, dayOfWeek);
-    } catch {
-      // revert on error — refetch not available in client component stub
+    if (source === 'backlog' && hour != null) {
+      setTareas(prev => prev.map(t => t.id === id ? { ...t, day: dayOfWeek, start: hour } : t));
+      try { await scheduleTarea(id, dayOfWeek, hour); } catch { }
+    } else {
+      setTareas(prev => prev.map(t => t.id === id ? { ...t, day: dayOfWeek } : t));
+      try { await moveTarea(id, dayOfWeek); } catch { }
     }
   }
 
@@ -493,110 +633,262 @@ export default function ViewTareas({ tareas: initialTareas, objetivos }) {
     setModal(null);
   }
 
-  const viewButtons = [
-    { key: 'day', label: t(lang, 'day') },
-    { key: '4d', label: t(lang, 'fourDays') },
-    { key: 'week', label: t(lang, 'week') },
-  ];
-
   return (
-    <div style={{ padding: '40px 48px 80px' }}>
-      <SectionHeader
-        eyebrow={t(lang, 'tareasTitle')}
-        title={t(lang, 'tareasTitle')}
-        subtitle={t(lang, 'tareasSubtitle')}
-      />
-
-      {/* Toolbar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 28, marginBottom: 20 }}>
-        <Btn variant="ghost" size="sm" onClick={() => navigate(-1)}>
-          <Icon name="chev-l" size={14} />
-        </Btn>
-        <Btn variant="ghost" size="sm" onClick={() => navigate(1)}>
-          <Icon name="chev-r" size={14} />
-        </Btn>
-        <Btn variant="secondary" size="sm" onClick={goToday}>
-          {t(lang, 'today')}
-        </Btn>
-        <div style={{ flex: 1 }} />
-        {viewButtons.map(({ key, label }) => (
-          <Btn
-            key={key}
-            size="sm"
-            variant={view === key ? 'primary' : 'ghost'}
-            onClick={() => {
-              setView(key);
-              setAnchorDate(new Date());
-            }}
-          >
-            {label}
-          </Btn>
-        ))}
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--bg)' }}>
+      {/* Header */}
+      <div style={{ padding: '24px 32px 14px', borderBottom: '1px solid var(--line-2)', flexShrink: 0, background: 'var(--bg)' }}>
+        {(() => {
+          const weekStart = view === 'week' ? getWeekStart(anchorDate) : new Date(anchorDate);
+          const weekEnd = new Date(weekStart);
+          if (view !== 'day') weekEnd.setDate(weekStart.getDate() + (view === '4d' ? 3 : 6));
+          const MONTHS_SHORT_ES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+          const MONTHS_SHORT_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          const ms = lang === 'es' ? MONTHS_SHORT_ES : MONTHS_SHORT_EN;
+          const rangeLabel = view === 'day'
+            ? `${weekStart.getDate()} ${ms[weekStart.getMonth()]}`
+            : `${weekStart.getDate()} ${ms[weekStart.getMonth()]} – ${weekEnd.getDate()} ${ms[weekEnd.getMonth()]}`;
+          const completedCount = tareas.filter(t => t.done).length;
+          const scheduledTotal = tareas.filter(t => t.day != null).length;
+          return (
+            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20 }}>
+              <div>
+                <div className="mono" style={{ fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', marginBottom: 8, color: 'var(--ink-3)' }}>
+                  {t(lang, 'weekOf')} {rangeLabel}
+                </div>
+                <h1 className="serif" style={{ fontStyle: 'italic', fontWeight: 500, fontSize: 28, margin: 0, letterSpacing: '-0.01em' }}>
+                  {t(lang, 'tareasTitle')}
+                </h1>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span className="mono" style={{ fontSize: 11, color: 'var(--ink-3)' }}>
+                  {completedCount}/{scheduledTotal} {t(lang, 'tasksDone')}
+                </span>
+                <div style={{ width: 1, height: 18, background: 'var(--line)' }} />
+                <button
+                  onClick={goToday}
+                  style={{ border: '1px solid var(--line)', background: 'white', borderRadius: 7, padding: '5px 10px', fontSize: 12, cursor: 'pointer', color: 'var(--ink-2)', fontFamily: 'inherit' }}
+                >
+                  {t(lang, 'today')}
+                </button>
+                <div style={{ display: 'flex', gap: 0 }}>
+                  <button onClick={() => navigate(-1)} style={{ border: '1px solid var(--line)', borderRight: 'none', background: 'white', borderRadius: '7px 0 0 7px', padding: '5px 8px', cursor: 'pointer', color: 'var(--ink-2)' }}>
+                    <Icon name="chev-l" size={13} />
+                  </button>
+                  <button onClick={() => navigate(1)} style={{ border: '1px solid var(--line)', background: 'white', borderRadius: '0 7px 7px 0', padding: '5px 8px', cursor: 'pointer', color: 'var(--ink-2)' }}>
+                    <Icon name="chev-r" size={13} />
+                  </button>
+                </div>
+                <div style={{ width: 1, height: 18, background: 'var(--line)' }} />
+                <div style={{ display: 'flex', border: '1px solid var(--line)', borderRadius: 7, padding: 2, background: 'white' }}>
+                  {[['day', t(lang, 'day')], ['4d', t(lang, 'fourDays')], ['week', t(lang, 'week')]].map(([k, l]) => (
+                    <button key={k} onClick={() => { setView(k); setAnchorDate(new Date()); }}
+                      style={{
+                        border: 'none', background: view === k ? 'var(--ink)' : 'transparent',
+                        color: view === k ? 'white' : 'var(--ink-2)',
+                        padding: '4px 10px', borderRadius: 5, fontSize: 12, cursor: 'pointer',
+                        fontWeight: view === k ? 500 : 400, fontFamily: 'inherit',
+                      }}
+                    >{l}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
-      {/* Calendar grid */}
-      <div
-        style={{
-          display: 'flex',
-          border: '1px solid var(--line-2)',
-          borderRadius: 8,
-          overflow: 'hidden',
-          background: 'var(--bg-2)',
-        }}
-      >
-        {/* Hour labels sidebar */}
-        <div
-          style={{
-            width: 44,
-            flexShrink: 0,
-            borderRight: '1px solid var(--line-2)',
-            background: 'var(--panel)',
-          }}
-        >
-          {/* Header spacer */}
-          <div style={{ height: 49, borderBottom: '1px solid var(--line-2)' }} />
-          {/* Hour slots */}
-          <div style={{ position: 'relative', height: (HOUR_END - HOUR_START + 1) * SLOT_H }}>
-            {HOURS.map((h) => (
-              <div
-                key={h}
-                className="mono"
-                style={{
-                  position: 'absolute',
-                  top: (h - HOUR_START) * SLOT_H - 7,
-                  right: 4,
-                  fontSize: 11,
-                  color: 'var(--ink-4)',
-                  lineHeight: 1,
-                  userSelect: 'none',
-                }}
-              >
-                {h}:00
+      {/* Body: calendar + backlog sidebar */}
+      <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
+        {/* Calendar */}
+        <div style={{ flex: 1, overflow: 'auto', background: 'var(--panel)' }}>
+          <div
+            style={{
+              display: 'flex',
+              border: '1px solid var(--line-2)',
+              borderRadius: 0,
+              overflow: 'hidden',
+              background: 'var(--bg-2)',
+              minHeight: '100%',
+            }}
+          >
+            {/* Hour labels sidebar */}
+            <div
+              style={{
+                width: 44,
+                flexShrink: 0,
+                borderRight: '1px solid var(--line-2)',
+                background: 'var(--panel)',
+              }}
+            >
+              {/* Header spacer */}
+              <div style={{ height: 49, borderBottom: '1px solid var(--line-2)' }} />
+              {/* Hour slots */}
+              <div style={{ position: 'relative', height: (HOUR_END - HOUR_START + 1) * SLOT_H }}>
+                {HOURS.map((h) => (
+                  <div
+                    key={h}
+                    className="mono"
+                    style={{
+                      position: 'absolute',
+                      top: (h - HOUR_START) * SLOT_H - 7,
+                      right: 4,
+                      fontSize: 11,
+                      color: 'var(--ink-4)',
+                      lineHeight: 1,
+                      userSelect: 'none',
+                    }}
+                  >
+                    {h}:00
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
+
+            {/* Day columns */}
+            <div
+              data-testid="calendar-columns"
+              style={{ display: 'flex', flex: 1, minWidth: 0 }}
+            >
+              {columns.map((colDate, i) => (
+                <DayColumn
+                  key={i}
+                  date={colDate}
+                  tareas={getTareasForColumn(colDate)}
+                  isToday={isSameDay(colDate, today)}
+                  dayIndex={i}
+                  lang={lang}
+                  onToggle={handleToggle}
+                  onDragStart={handleDragStart}
+                  onDrop={handleDrop}
+                  onSlotClick={handleSlotClick}
+                  dropHint={dropHint}
+                  setDropHint={setDropHint}
+                />
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Day columns */}
-        <div
-          data-testid="calendar-columns"
-          style={{ display: 'flex', flex: 1, minWidth: 0 }}
+        {/* Right backlog sidebar */}
+        <aside
+          style={{
+            width: 296,
+            flexShrink: 0,
+            borderLeft: '1px solid var(--line-2)',
+            background: 'var(--bg)',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+          }}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault();
+            const id = draggingId.current;
+            const source = draggingSource.current;
+            if (id && source === 'calendar') {
+              setTareas(prev => prev.map(t => t.id === id ? { ...t, day: null, start: null } : t));
+              unscheduleTarea(id).catch(() => {});
+            }
+            draggingId.current = null;
+            draggingSource.current = null;
+            setDropHint(null);
+          }}
         >
-          {columns.map((colDate, i) => (
-            <DayColumn
-              key={i}
-              date={colDate}
-              tareas={getTareasForColumn(colDate)}
-              isToday={isSameDay(colDate, today)}
-              dayIndex={i}
-              lang={lang}
-              onToggle={handleToggle}
-              onDragStart={handleDragStart}
-              onDrop={handleDrop}
-              onSlotClick={handleSlotClick}
-            />
-          ))}
-        </div>
+          {/* Sidebar header */}
+          <div style={{ padding: '14px 16px 10px', borderBottom: '1px solid var(--line-2)', flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Icon name="checkbox" size={14} />
+              <h3 style={{ fontSize: 14, fontWeight: 600, margin: 0, flex: 1, color: 'var(--ink)' }}>
+                {t(lang, 'backlog')}
+              </h3>
+              <span className="mono" style={{ fontSize: 11, color: 'var(--ink-3)' }}>{backlog.length}</span>
+            </div>
+            <p style={{ fontSize: 11.5, margin: '4px 0 10px', lineHeight: 1.4, color: 'var(--ink-3)' }}>
+              {t(lang, 'backlogSub')}
+            </p>
+            {/* Filter chips */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+              <button
+                type="button"
+                onClick={() => setFilterObj('all')}
+                style={{
+                  border: 'none',
+                  background: filterObj === 'all' ? 'var(--ink)' : 'white',
+                  color: filterObj === 'all' ? 'white' : 'var(--ink-2)',
+                  borderRadius: 999, padding: '3px 9px', fontSize: 11, cursor: 'pointer',
+                  boxShadow: filterObj === 'all' ? 'none' : 'inset 0 0 0 1px var(--line)',
+                  fontFamily: 'inherit',
+                }}
+              >
+                {t(lang, 'allObjectives')}
+              </button>
+              {activeObjetivos.map(o => {
+                const pal = palById(o.color);
+                return (
+                  <button
+                    key={o.id}
+                    type="button"
+                    onClick={() => setFilterObj(o.id)}
+                    style={{
+                      border: 'none',
+                      display: 'flex', alignItems: 'center', gap: 5,
+                      background: filterObj === o.id ? 'var(--ink)' : 'white',
+                      color: filterObj === o.id ? 'white' : 'var(--ink-2)',
+                      borderRadius: 999, padding: '3px 9px', fontSize: 11, cursor: 'pointer',
+                      boxShadow: filterObj === o.id ? 'none' : 'inset 0 0 0 1px var(--line)',
+                      maxWidth: 160, fontFamily: 'inherit',
+                    }}
+                  >
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: pal.dot, display: 'block', flexShrink: 0 }} />
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {lang === 'en' && o.title_en ? o.title_en : o.title}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Task list */}
+          <div style={{ flex: 1, overflow: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {backlog.map(tarea => (
+              <BacklogCard
+                key={tarea.id}
+                tarea={tarea}
+                lang={lang}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+              />
+            ))}
+            {backlog.length === 0 && (
+              <div style={{
+                padding: '24px 12px', textAlign: 'center',
+                border: '1px dashed var(--line)', borderRadius: 10,
+                color: 'var(--ink-4)', fontSize: 12,
+              }}>
+                {lang === 'es'
+                  ? 'Bandeja vacía. Arrastra una tarea aquí para devolverla.'
+                  : 'Inbox empty. Drag a task here to send it back.'}
+              </div>
+            )}
+          </div>
+
+          {/* Add task footer */}
+          <div style={{ padding: 12, borderTop: '1px solid var(--line-2)', flexShrink: 0 }}>
+            <button
+              type="button"
+              onClick={() => setModal({ colIndex: 0, start: 9 })}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                padding: '8px 10px', border: '1px dashed var(--line)', borderRadius: 8,
+                background: 'transparent', color: 'var(--ink-2)', fontSize: 12.5, cursor: 'pointer',
+                fontFamily: 'inherit',
+              }}
+            >
+              <Icon name="plus" size={13} /> {t(lang, 'addTask')}
+            </button>
+          </div>
+        </aside>
       </div>
 
       {modal && (

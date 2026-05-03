@@ -10,15 +10,15 @@ import { t } from '@/lib/i18n';
 import { palById } from '@/lib/palette';
 
 const NAV_ITEMS = [
-  { key: 'metas', href: '/metas', icon: 'target' },
-  { key: 'objetivos', href: '/objetivos', icon: 'flag' },
-  { key: 'tareas', href: '/tareas', icon: 'check' },
+  { key: 'workspace', href: '/workspace', icon: 'flag' },
+  { key: 'tareas', href: '/tareas', icon: 'calendar' },
 ];
 
-export default function Sidebar({ onSearchOpen, onReviewOpen }) {
+export default function Sidebar({ onSearchOpen, onReviewOpen, onNewGoal }) {
   const pathname = usePathname();
   const [lang, setLang] = useState('es');
   const [thisWeekObjetivos, setThisWeekObjetivos] = useState([]);
+  const [activeMetas, setActiveMetas] = useState([]);
   const [counts, setCounts] = useState({ metas: 0, objetivos: 0, tareas: 0 });
 
   useEffect(() => {
@@ -33,11 +33,10 @@ export default function Sidebar({ onSearchOpen, onReviewOpen }) {
         if (res.ok) {
           const data = await res.json();
           setThisWeekObjetivos(data.thisWeekObjetivos ?? []);
+          setActiveMetas(data.activeMetas ?? []);
           setCounts(data.counts ?? { metas: 0, objetivos: 0, tareas: 0 });
         }
-      } catch {
-        // Ignore fetch errors (e.g. no DB in test env)
-      }
+      } catch { }
     }
     fetchData();
   }, []);
@@ -223,8 +222,8 @@ export default function Sidebar({ onSearchOpen, onReviewOpen }) {
         })}
       </div>
 
-      {/* Esta semana section */}
-      {thisWeekObjetivos.length > 0 && (
+      {/* Active metas section */}
+      {activeMetas.length > 0 && (
         <div style={{ padding: '10px 10px 4px' }}>
           <div
             className="mono"
@@ -238,33 +237,37 @@ export default function Sidebar({ onSearchOpen, onReviewOpen }) {
           >
             {t(lang, 'thisWeek')}
           </div>
-          {thisWeekObjetivos.map((obj) => {
-            const pal = palById(obj.color);
-            return (
-              <div
-                key={obj.id}
+          {activeMetas.map((meta) => (
+            <div
+              key={meta.id}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '5px 6px',
+              }}
+            >
+              <span
+                className="pulse"
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 7,
-                  padding: '4px 6px',
+                  width: 6, height: 6, borderRadius: '50%',
+                  background: 'oklch(0.62 0.14 145)',
+                  display: 'block', flexShrink: 0,
+                }}
+              />
+              <span
+                style={{
+                  fontSize: 12.5,
+                  color: 'var(--ink)',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
                 }}
               >
-                <ColorDot color={pal.dot} size={10} />
-                <span
-                  style={{
-                    fontSize: 12.5,
-                    color: 'var(--ink-2)',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
-                  {lang === 'en' && obj.title_en ? obj.title_en : obj.title}
-                </span>
-              </div>
-            );
-          })}
+                {lang === 'en' && meta.title_en ? meta.title_en : meta.title}
+              </span>
+            </div>
+          ))}
         </div>
       )}
 
@@ -287,7 +290,7 @@ export default function Sidebar({ onSearchOpen, onReviewOpen }) {
           <Icon name="review" size={14} />
           {t(lang, 'weeklyReview')}
         </Btn>
-        <Btn variant="primary" style={{ width: '100%', justifyContent: 'flex-start' }}>
+        <Btn variant="primary" style={{ width: '100%', justifyContent: 'flex-start' }} onClick={onNewGoal}>
           <Icon name="plus" size={14} />
           {t(lang, 'newMeta')}
         </Btn>
