@@ -1,19 +1,23 @@
-import { streamChat, proposeObjetivos, AGENT_01_SYSTEM_PROMPT } from '@/lib/claude';
+import { streamChat, proposeHitos, proposeObjetivosForHito, AGENT_01_SYSTEM_PROMPT } from '@/lib/claude';
 
 export const runtime = 'nodejs';
 
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { messages, mode, metaSummary, lang } = body;
+    const { messages, mode, metaSummary, meta, hito } = body;
 
     if (mode === 'propose') {
-      // Single call to propose objectives — no streaming needed
-      const objetivos = await proposeObjetivos(metaSummary, lang ?? 'es');
+      const hitos = await proposeHitos(metaSummary);
+      return Response.json({ hitos });
+    }
+
+    if (mode === 'proposeObjetivos') {
+      const objetivos = await proposeObjetivosForHito(meta, hito);
       return Response.json({ objetivos });
     }
 
-    // Default: streaming chat
+    // Default: streaming chat with PM Metas agent
     const encoder = new TextEncoder();
 
     const stream = new ReadableStream({

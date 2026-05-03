@@ -14,6 +14,7 @@ import { palById } from '@/lib/palette';
 import { metaProgress } from '@/lib/progress';
 import { toggleMetaActive, updateMeta, deleteMeta } from '@/lib/actions/metas';
 import WizardAgent from '@/components/modals/WizardAgent';
+import GenerateObjetivosModal from '@/components/modals/GenerateObjetivosModal';
 
 function getLang() {
   if (typeof window === 'undefined') return 'es';
@@ -343,6 +344,97 @@ function MetaCard({ meta, objetivos, tareas, lang, onToggle, onEdit, onDelete })
   );
 }
 
+function HitosSection({ meta, lang, onGenerate }) {
+  const [open, setOpen] = useState(false);
+  const hitos = meta.hitos ?? [];
+  if (hitos.length === 0) return null;
+
+  return (
+    <div style={{ marginTop: -4, borderTop: '1px solid var(--line-2)', background: 'var(--bg)', borderRadius: '0 0 12px 12px', overflow: 'hidden' }}>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '8px 24px', background: 'none', border: 'none', cursor: 'pointer',
+          fontSize: 11, color: 'var(--ink-3)', fontFamily: 'inherit',
+        }}
+      >
+        <span style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          {lang === 'en' ? `${hitos.length} milestones` : `${hitos.length} hitos`}
+        </span>
+        <span style={{ fontSize: 9 }}>{open ? '▲' : '▼'}</span>
+      </button>
+
+      {open && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          {hitos.map((hito) => {
+            const pal = palById(hito.color ?? 'sand');
+            const objCount = hito._count?.objetivos ?? 0;
+            const dateStr = hito.fecha_objetivo
+              ? new Date(hito.fecha_objetivo).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+              : null;
+
+            return (
+              <div
+                key={hito.id}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '8px 24px', background: 'var(--bg)',
+                  borderTop: '1px solid var(--line-2)',
+                }}
+              >
+                <div style={{ width: 3, height: 28, borderRadius: 2, background: pal.dot, flexShrink: 0 }} />
+
+                {hito.arc && (
+                  <span style={{
+                    fontSize: 9, fontWeight: 700, color: 'var(--ink-4)',
+                    background: 'var(--bg-2)', borderRadius: 3, padding: '2px 5px',
+                    letterSpacing: '0.06em', flexShrink: 0,
+                  }}>
+                    {hito.arc}
+                  </span>
+                )}
+
+                <span style={{ flex: 1, fontSize: 12, color: 'var(--ink-2)', lineHeight: 1.4, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                  {hito.enunciado}
+                </span>
+
+                {dateStr && (
+                  <span style={{ fontSize: 11, color: 'var(--ink-4)', flexShrink: 0 }}>{dateStr}</span>
+                )}
+
+                {objCount > 0 && (
+                  <span style={{
+                    fontSize: 10, color: 'var(--ink-4)',
+                    background: 'var(--bg-2)', borderRadius: 10, padding: '1px 6px', flexShrink: 0,
+                  }}>
+                    {objCount} obj
+                  </span>
+                )}
+
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onGenerate(hito, meta); }}
+                  title={lang === 'en' ? 'Generate objectives' : 'Generar objetivos'}
+                  style={{
+                    fontSize: 11, fontWeight: 600, color: 'oklch(0.45 0.14 150)',
+                    background: 'oklch(0.95 0.05 150)', border: 'none',
+                    borderRadius: 6, padding: '3px 8px', cursor: 'pointer',
+                    flexShrink: 0, fontFamily: 'inherit',
+                  }}
+                >
+                  ⚡ {lang === 'en' ? 'Generate' : 'Generar'}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function EmptyState({ message }) {
   return (
     <div
@@ -362,11 +454,13 @@ function EmptyState({ message }) {
 }
 
 export default function ViewMetas({ metas: initialMetas, objetivos, tareas }) {
+  const router = useRouter();
   const [lang, setLang] = useState('es');
   const [metas, setMetas] = useState(initialMetas);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [editingMeta, setEditingMeta] = useState(null);
   const [deletingMeta, setDeletingMeta] = useState(null);
+  const [generateModal, setGenerateModal] = useState(null); // { hito, meta }
 
   useEffect(() => {
     setLang(getLang());
@@ -427,16 +521,22 @@ export default function ViewMetas({ metas: initialMetas, objetivos, tareas }) {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {activeMetas.map((meta) => (
-                <MetaCard
-                  key={meta.id}
-                  meta={meta}
-                  objetivos={objetivos}
-                  tareas={tareas}
-                  lang={lang}
-                  onToggle={handleToggle}
-                  onEdit={setEditingMeta}
-                  onDelete={setDeletingMeta}
-                />
+                <div key={meta.id} style={{ display: 'flex', flexDirection: 'column', borderRadius: 12, overflow: 'hidden', border: '1px solid var(--line-2)' }}>
+                  <MetaCard
+                    meta={meta}
+                    objetivos={objetivos}
+                    tareas={tareas}
+                    lang={lang}
+                    onToggle={handleToggle}
+                    onEdit={setEditingMeta}
+                    onDelete={setDeletingMeta}
+                  />
+                  <HitosSection
+                    meta={meta}
+                    lang={lang}
+                    onGenerate={(hito, m) => setGenerateModal({ hito, meta: m })}
+                  />
+                </div>
               ))}
             </div>
           )}
@@ -458,16 +558,22 @@ export default function ViewMetas({ metas: initialMetas, objetivos, tareas }) {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {inactiveMetas.map((meta) => (
-                <MetaCard
-                  key={meta.id}
-                  meta={meta}
-                  objetivos={objetivos}
-                  tareas={tareas}
-                  lang={lang}
-                  onToggle={handleToggle}
-                  onEdit={setEditingMeta}
-                  onDelete={setDeletingMeta}
-                />
+                <div key={meta.id} style={{ display: 'flex', flexDirection: 'column', borderRadius: 12, overflow: 'hidden', border: '1px solid var(--line-2)' }}>
+                  <MetaCard
+                    meta={meta}
+                    objetivos={objetivos}
+                    tareas={tareas}
+                    lang={lang}
+                    onToggle={handleToggle}
+                    onEdit={setEditingMeta}
+                    onDelete={setDeletingMeta}
+                  />
+                  <HitosSection
+                    meta={meta}
+                    lang={lang}
+                    onGenerate={(hito, m) => setGenerateModal({ hito, meta: m })}
+                  />
+                </div>
               ))}
             </div>
           )}
@@ -493,6 +599,15 @@ export default function ViewMetas({ metas: initialMetas, objetivos, tareas }) {
           lang={lang}
           onClose={() => setDeletingMeta(null)}
           onConfirm={handleDelete}
+        />
+      )}
+
+      {generateModal && (
+        <GenerateObjetivosModal
+          hito={generateModal.hito}
+          meta={generateModal.meta}
+          onClose={() => setGenerateModal(null)}
+          onSaved={() => { setGenerateModal(null); router.refresh(); }}
         />
       )}
     </div>

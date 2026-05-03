@@ -8,31 +8,56 @@ datasource db {
 }
 
 model Meta {
-  id         String     @id @default(cuid())
-  title      String     @db.Text
-  title_en   String     @db.Text
-  why        String     @db.Text
-  why_en     String     @db.Text
-  success    String     @db.Text
-  success_en String     @db.Text
-  horizon    String     @db.Text
-  horizon_en String     @db.Text
-  active     Boolean    @default(true)
-  createdAt  DateTime   @default(now())
-  objetivos  Objetivo[]
+  id                String     @id @default(cuid())
+  title             String     @db.Text
+  title_en          String     @db.Text
+  why               String     @db.Text
+  why_en            String     @db.Text
+  success           String     @db.Text
+  success_en        String     @db.Text
+  horizon           String     @db.Text
+  horizon_en        String     @db.Text
+  identidad_deseada String?    @db.Text
+  obstaculo_interno String?    @db.Text
+  plan_respuesta    String?    @db.Text
+  fecha_logro       DateTime?
+  active            Boolean    @default(true)
+  createdAt         DateTime   @default(now())
+  hitos             Hito[]
+  objetivos         Objetivo[]
+}
+
+model Hito {
+  id                    String     @id @default(cuid())
+  metaId                String
+  meta                  Meta       @relation(fields: [metaId], references: [id], onDelete: Cascade)
+  enunciado             String     @db.Text
+  criterio_verificacion String     @db.Text
+  fecha_objetivo        DateTime?
+  puente_con_meta       String     @db.Text
+  color                 String     @default("sand")
+  objetivos             Objetivo[]
+  createdAt             DateTime   @default(now())
 }
 
 model Objetivo {
-  id         String  @id @default(cuid())
-  metaId     String
-  meta       Meta    @relation(fields: [metaId], references: [id], onDelete: Cascade)
-  title      String  @db.Text
-  title_en   String  @db.Text
-  color      String  @default("sand")
-  weeklyLoad Int     @default(1)
-  done       Int     @default(0)
-  thisWeek   Boolean @default(false)
-  tareas     Tarea[]
+  id                    String    @id @default(cuid())
+  metaId                String
+  meta                  Meta      @relation(fields: [metaId], references: [id], onDelete: Cascade)
+  hitoId                String?
+  hito                  Hito?     @relation(fields: [hitoId], references: [id])
+  title                 String    @db.Text
+  title_en              String    @db.Text
+  tipo                  String    @default("Aprendizaje")
+  metrica               String?   @db.Text
+  fecha_limite          DateTime?
+  intencion_si_entonces String?   @db.Text
+  seguimiento           String?   @db.Text
+  color                 String    @default("sand")
+  weeklyLoad            Int       @default(1)
+  done                  Int       @default(0)
+  thisWeek              Boolean   @default(false)
+  tareas                Tarea[]
 }
 
 model Tarea {
