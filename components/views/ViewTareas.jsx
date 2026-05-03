@@ -7,7 +7,7 @@ import Btn from '@/components/ui/Btn';
 import Icon from '@/components/ui/Icon';
 import { t } from '@/lib/i18n';
 import { palById } from '@/lib/palette';
-import { toggleTarea, moveTarea, createTarea, scheduleTarea, unscheduleTarea } from '@/lib/actions/tareas';
+import { toggleTarea, moveTarea, createTarea, scheduleTarea, unscheduleTarea, updateTarea } from '@/lib/actions/tareas';
 
 const SLOT_H = 44;
 const HOUR_START = 7;
@@ -52,10 +52,16 @@ function parseSubtasks(raw) {
   }
 }
 
-function TaskCard({ tarea, onToggle, onDragStart, columnDate }) {
+function TaskCard({ tarea, onToggle, onDragStart, onResize, columnDate }) {
   const pal = palById(tarea.objetivo?.color ?? 'sand');
+  const [localDur, setLocalDur] = useState(tarea.dur);
+  
+  useEffect(() => {
+    setLocalDur(tarea.dur);
+  }, [tarea.dur]);
+
   const top = (tarea.start - HOUR_START) * SLOT_H;
-  const height = Math.max(tarea.dur * SLOT_H, 22);
+  const height = Math.max(localDur * SLOT_H, 22);
   const subtasks = parseSubtasks(tarea.subtasks);
   const [dragging, setDragging] = useState(false);
 
@@ -63,17 +69,50 @@ function TaskCard({ tarea, onToggle, onDragStart, columnDate }) {
 
   function handleDragStart(e) {
     setDragging(true);
-    onDragStart(tarea.id, 'calendar');
+    onDragStart(tarea.id, 'calendar', tarea.dur);
+    // To allow dropping in Firefox, need to set data
+    e.dataTransfer.setData('text/task', tarea.id);
+    e.dataTransfer.effectAllowed = 'move';
+    
+    // Create a nicer ghost image if possible, but default is OK
   }
 
   function handleDragEnd() {
     setDragging(false);
   }
 
+  function handleResizePointerDown(e) {
+    e.stopPropagation();
+    e.preventDefault();
+    const startY = e.clientY;
+    const startDur = localDur;
+
+    function handlePointerMove(ev) {
+      const deltaY = ev.clientY - startY;
+      const deltaSlots = Math.round(deltaY / (SLOT_H / 2)) * 0.5; // Snap to 30 min (0.5)
+      const newDur = Math.max(0.5, startDur + deltaSlots);
+      setLocalDur(newDur);
+    }
+
+    function handlePointerUp(ev) {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      const deltaY = ev.clientY - startY;
+      const deltaSlots = Math.round(deltaY / (SLOT_H / 2)) * 0.5;
+      const newDur = Math.max(0.5, startDur + deltaSlots);
+      if (newDur !== tarea.dur && onResize) {
+        onResize(tarea.id, newDur);
+      }
+    }
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+  }
+
   return (
     <div
       data-testid={`task-card-${tarea.id}`}
-      draggable
+      draggable={!tarea.done}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       style={{
@@ -87,13 +126,16 @@ function TaskCard({ tarea, onToggle, onDragStart, columnDate }) {
         color: pal.fg,
         padding: '3px 6px',
         overflow: 'hidden',
-        cursor: 'grab',
+        cursor: tarea.done ? 'default' : 'grab',
         opacity: dragging ? 0.5 : tarea.done ? 0.6 : 1,
         boxSizing: 'border-box',
         display: 'flex',
         flexDirection: 'column',
         gap: 2,
         userSelect: 'none',
+        zIndex: dragging ? 10 : 1,
+        boxShadow: dragging ? '0 8px 16px rgba(0,0,0,0.1)' : 'none',
+        transition: dragging ? 'none' : 'box-shadow 0.2s',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -136,6 +178,26 @@ function TaskCard({ tarea, onToggle, onDragStart, columnDate }) {
           ))}
         </div>
       )}
+      
+      {/* Resize handle */}
+      {!tarea.done && (
+        <div
+          onPointerDown={handleResizePointerDown}
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 10,
+            cursor: 'ns-resize',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <div style={{ width: 24, height: 3, borderRadius: 1.5, background: 'rgba(0,0,0,0.15)' }} />
+        </div>
+      )}
     </div>
   );
 }
@@ -170,7 +232,7 @@ function BacklogCard({ tarea, lang, onDragStart, onDragEnd }) {
       draggable
       onDragStart={(e) => {
         setDragging(true);
-        onDragStart(tarea.id, 'backlog');
+        onDragStart(tarea.id, 'backlog', tarea.dur);
         e.dataTransfer.setData('text/task', tarea.id);
         e.dataTransfer.effectAllowed = 'move';
       }}
@@ -231,9 +293,11 @@ function DayColumn({
   onToggle,
   onDragStart,
   onDrop,
+  onResize,
   onSlotClick,
   dropHint,
   setDropHint,
+  draggingDur,
 }) {
   const dayKey = DAY_KEYS[date.getDay() === 0 ? 6 : date.getDay() - 1];
   const dayLabel = t(lang, dayKey);
@@ -322,13 +386,15 @@ function DayColumn({
             style={{
               position: 'absolute',
               top: (dropHint.hour - HOUR_START) * SLOT_H,
-              left: 0,
-              right: 0,
-              height: SLOT_H,
-              background: 'oklch(0.95 0.02 250)',
+              left: 4,
+              right: 4,
+              height: (draggingDur || 1) * SLOT_H,
+              background: 'oklch(0.95 0.05 250 / 0.5)',
+              border: '2px dashed oklch(0.8 0.1 250)',
               pointerEvents: 'none',
-              zIndex: 0,
-              borderRadius: 2,
+              zIndex: 5,
+              borderRadius: 6,
+              boxSizing: 'border-box',
             }}
           />
         )}
@@ -355,6 +421,7 @@ function DayColumn({
             tarea={tarea}
             onToggle={onToggle}
             onDragStart={onDragStart}
+            onResize={onResize}
             columnDate={date}
           />
         ))}
@@ -366,7 +433,7 @@ function DayColumn({
 function QuickCreateModal({ dayIndex, start, objetivos, lang, onConfirm, onCancel }) {
   const [title, setTitle] = useState('');
   const [objId, setObjId] = useState(objetivos[0]?.id ?? '');
-  const [dur, setDur] = useState(1);
+  const [dur, setDur] = useState(0.5);
   const [saving, setSaving] = useState(false);
 
   async function handleSubmit(e) {
@@ -502,6 +569,7 @@ export default function ViewTareas({ tareas: initialTareas, objetivos, metas = [
   const [filterObj, setFilterObj] = useState('all');
   const draggingId = useRef(null);
   const draggingSource = useRef(null);
+  const draggingDur = useRef(1);
 
   useEffect(() => {
     setLang(getLang());
@@ -566,9 +634,10 @@ export default function ViewTareas({ tareas: initialTareas, objetivos, metas = [
     return tareas.filter((t) => t.day === dayOfWeek);
   }
 
-  function handleDragStart(id, source) {
+  function handleDragStart(id, source, dur = 1) {
     draggingId.current = id;
     draggingSource.current = source;
+    draggingDur.current = dur;
   }
 
   function handleDragEnd() {
@@ -605,6 +674,15 @@ export default function ViewTareas({ tareas: initialTareas, objetivos, metas = [
       setTareas((prev) =>
         prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t))
       );
+    }
+  }
+
+  async function handleResize(id, newDur) {
+    setTareas(prev => prev.map(t => t.id === id ? { ...t, dur: newDur } : t));
+    try {
+      await updateTarea(id, { dur: newDur });
+    } catch {
+      // Could rollback on error
     }
   }
 
@@ -760,9 +838,11 @@ export default function ViewTareas({ tareas: initialTareas, objetivos, metas = [
                   onToggle={handleToggle}
                   onDragStart={handleDragStart}
                   onDrop={handleDrop}
+                  onResize={handleResize}
                   onSlotClick={handleSlotClick}
                   dropHint={dropHint}
                   setDropHint={setDropHint}
+                  draggingDur={draggingDur.current}
                 />
               ))}
             </div>
