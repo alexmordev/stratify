@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import SectionHeader from '@/components/ui/SectionHeader';
 import ProgressBar from '@/components/ui/ProgressBar';
 import ColorDot from '@/components/ui/ColorDot';
@@ -8,9 +8,15 @@ import Check from '@/components/ui/Check';
 import Icon from '@/components/ui/Icon';
 import Btn from '@/components/ui/Btn';
 import { t } from '@/lib/i18n';
-import { palById } from '@/lib/palette';
+import { PALETTE, palById } from '@/lib/palette';
 import { objProgress, metaProgress } from '@/lib/progress';
-import { createObjetivo, toggleObjetivoThisWeek } from '@/lib/actions/objetivos';
+import {
+  createObjetivo,
+  updateObjetivo,
+  deleteObjetivo,
+  toggleObjetivoThisWeek,
+  toggleObjetivoCompleted,
+} from '@/lib/actions/objetivos';
 import { createTarea, toggleTarea } from '@/lib/actions/tareas';
 
 function getLang() {
@@ -19,7 +25,279 @@ function getLang() {
   return stored === 'en' || stored === 'es' ? stored : 'es';
 }
 
+function dateToInput(date) {
+  if (!date) return '';
+  const d = new Date(date);
+  return d.toISOString().slice(0, 10);
+}
+
 const DAY_NAMES = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+
+const inputStyle = {
+  width: '100%',
+  padding: '8px 10px',
+  fontSize: 13.5,
+  border: '1px solid var(--line)',
+  borderRadius: 8,
+  background: 'var(--bg)',
+  color: 'var(--ink)',
+  fontFamily: 'inherit',
+  outline: 'none',
+  boxSizing: 'border-box',
+};
+
+function ModalEditObjetivo({ objetivo, lang, onClose, onSave }) {
+  const [form, setForm] = useState({
+    title: objetivo.title,
+    tipo: objetivo.tipo ?? 'Aprendizaje',
+    metrica: objetivo.metrica ?? '',
+    fecha_limite: dateToInput(objetivo.fecha_limite),
+    intencion_si_entonces: objetivo.intencion_si_entonces ?? '',
+    seguimiento: objetivo.seguimiento ?? '',
+    weeklyLoad: objetivo.weeklyLoad ?? 1,
+    color: objetivo.color ?? 'sand',
+  });
+  const [saving, setSaving] = useState(false);
+  const firstRef = useRef(null);
+
+  useEffect(() => {
+    firstRef.current?.focus();
+    function onKey(e) { if (e.key === 'Escape') onClose(); }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  function set(field, value) {
+    setForm((prev) => ({ ...prev, [field]: value }));
+  }
+
+  async function handleSave() {
+    if (!form.title.trim()) return;
+    setSaving(true);
+    try {
+      const data = {
+        title: form.title.trim(),
+        title_en: form.title.trim(),
+        tipo: form.tipo,
+        metrica: form.metrica.trim() || null,
+        fecha_limite: form.fecha_limite || null,
+        intencion_si_entonces: form.intencion_si_entonces.trim() || null,
+        seguimiento: form.seguimiento.trim() || null,
+        weeklyLoad: Number(form.weeklyLoad) || 1,
+        color: form.color,
+      };
+      await onSave(objetivo.id, data);
+      onClose();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200,
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: 'var(--panel)', borderRadius: 14, padding: '28px 32px',
+          width: 480, maxWidth: '92vw', maxHeight: '85vh', overflowY: 'auto',
+          display: 'flex', flexDirection: 'column', gap: 20,
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)', margin: 0 }}>
+          {t(lang, 'editObjective')}
+        </h2>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink-3)' }}>
+              {t(lang, 'titleLabel')}
+            </span>
+            <input
+              ref={firstRef}
+              style={inputStyle}
+              value={form.title}
+              onChange={(e) => set('title', e.target.value)}
+            />
+          </label>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink-3)' }}>
+              {t(lang, 'tipoLabel')}
+            </span>
+            <div style={{ display: 'flex', gap: 16 }}>
+              {['Aprendizaje', 'Rendimiento'].map((tipo) => (
+                <label key={tipo} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, cursor: 'pointer', color: 'var(--ink-2)' }}>
+                  <input
+                    type="radio"
+                    name="edit-tipo"
+                    value={tipo}
+                    checked={form.tipo === tipo}
+                    onChange={() => set('tipo', tipo)}
+                    style={{ accentColor: 'var(--ink)' }}
+                  />
+                  {lang === 'en'
+                    ? (tipo === 'Aprendizaje' ? t(lang, 'tipoAprendizaje') : t(lang, 'tipoRendimiento'))
+                    : tipo}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink-3)' }}>
+              {t(lang, 'metrica')}
+            </span>
+            <input
+              style={inputStyle}
+              value={form.metrica}
+              onChange={(e) => set('metrica', e.target.value)}
+              placeholder="…"
+            />
+          </label>
+
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink-3)' }}>
+              {t(lang, 'fecha_limite')}
+            </span>
+            <input
+              type="date"
+              style={inputStyle}
+              value={form.fecha_limite}
+              onChange={(e) => set('fecha_limite', e.target.value)}
+            />
+          </label>
+
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink-3)' }}>
+              {t(lang, 'intencion_si_entonces')}
+            </span>
+            <textarea
+              style={{ ...inputStyle, resize: 'vertical', minHeight: 60 }}
+              value={form.intencion_si_entonces}
+              onChange={(e) => set('intencion_si_entonces', e.target.value)}
+              rows={2}
+            />
+          </label>
+
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink-3)' }}>
+              {t(lang, 'seguimiento')}
+            </span>
+            <textarea
+              style={{ ...inputStyle, resize: 'vertical', minHeight: 60 }}
+              value={form.seguimiento}
+              onChange={(e) => set('seguimiento', e.target.value)}
+              rows={2}
+            />
+          </label>
+
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink-3)' }}>
+              {t(lang, 'weeklyLoad')}
+            </span>
+            <input
+              type="number"
+              min={1}
+              max={7}
+              style={{ ...inputStyle, width: 80 }}
+              value={form.weeklyLoad}
+              onChange={(e) => set('weeklyLoad', e.target.value)}
+            />
+          </label>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink-3)' }}>
+              {t(lang, 'color')}
+            </span>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {PALETTE.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  title={p.id}
+                  onClick={() => set('color', p.id)}
+                  style={{
+                    width: 20, height: 20, borderRadius: '50%', background: p.dot,
+                    border: form.color === p.id ? '2px solid var(--ink)' : '2px solid transparent',
+                    cursor: 'pointer', padding: 0, outline: 'none',
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
+          <Btn variant="ghost" onClick={onClose} disabled={saving}>{t(lang, 'cancel')}</Btn>
+          <Btn variant="primary" onClick={handleSave} disabled={saving || !form.title.trim()}>
+            {t(lang, 'save')}
+          </Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ConfirmDeleteObjetivo({ objetivo, lang, onClose, onConfirm }) {
+  const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => {
+    function onKey(e) { if (e.key === 'Escape') onClose(); }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  async function handleConfirm() {
+    setDeleting(true);
+    try {
+      await onConfirm(objetivo.id);
+      onClose();
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200,
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: 'var(--panel)', borderRadius: 14, padding: '28px 32px',
+          width: 420, maxWidth: '92vw',
+          display: 'flex', flexDirection: 'column', gap: 16,
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)', margin: 0 }}>
+          {t(lang, 'deleteObjective')}
+        </h2>
+        <p style={{ fontSize: 13.5, color: 'var(--ink-2)', margin: 0, lineHeight: 1.5 }}>
+          {t(lang, 'deleteObjectiveConfirm')}
+        </p>
+        <p style={{ fontSize: 13, color: 'var(--ink-3)', margin: 0, fontStyle: 'italic' }}>
+          &ldquo;{objetivo.title}&rdquo;
+        </p>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <Btn variant="ghost" onClick={onClose}>{t(lang, 'cancel')}</Btn>
+          <Btn variant="danger" onClick={handleConfirm} disabled={deleting}>
+            {t(lang, 'delete')}
+          </Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function AddTareaForm({ objId, lang, onAdd, onCancel }) {
   const [title, setTitle] = useState('');
@@ -146,12 +424,16 @@ function AddTareaForm({ objId, lang, onAdd, onCancel }) {
   );
 }
 
-function ObjetivoCard({ objetivo, tareas: initialTareas, lang, onTareaToggle, onTareaAdd, onThisWeekToggle }) {
+function ObjetivoCard({ objetivo, tareas: initialTareas, lang, onTareaToggle, onTareaAdd, onThisWeekToggle, onEdit, onDelete, onComplete }) {
   const [collapsed, setCollapsed] = useState(false);
   const [tareas, setTareas] = useState(initialTareas);
   const [showAddForm, setShowAddForm] = useState(false);
   const [thisWeek, setThisWeek] = useState(objetivo.thisWeek ?? false);
+  const [completed, setCompleted] = useState(Boolean(objetivo.done));
   const [togglingWeek, setTogglingWeek] = useState(false);
+  const [togglingComplete, setTogglingComplete] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
 
   const pal = palById(objetivo.color);
   const title = lang === 'en' && objetivo.title_en ? objetivo.title_en : objetivo.title;
@@ -171,6 +453,21 @@ function ObjetivoCard({ objetivo, tareas: initialTareas, lang, onTareaToggle, on
       setThisWeek(!next);
     } finally {
       setTogglingWeek(false);
+    }
+  }
+
+  async function handleCompleteToggle() {
+    if (togglingComplete) return;
+    setTogglingComplete(true);
+    const next = !completed;
+    setCompleted(next);
+    try {
+      await toggleObjetivoCompleted(objetivo.id);
+      onComplete?.(objetivo.id, next);
+    } catch {
+      setCompleted(!next);
+    } finally {
+      setTogglingComplete(false);
     }
   }
 
@@ -194,180 +491,248 @@ function ObjetivoCard({ objetivo, tareas: initialTareas, lang, onTareaToggle, on
     onTareaAdd?.(newTarea);
   }
 
+  const iconBtnStyle = {
+    background: 'none',
+    border: '1px solid transparent',
+    borderRadius: 5,
+    padding: 3,
+    cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    transition: 'background .15s, color .15s, border-color .15s',
+  };
+
   return (
-    <div
-      data-testid={`objetivo-card-${objetivo.id}`}
-      style={{
-        background: 'var(--panel)',
-        border: '1px solid var(--line-2)',
-        borderRadius: 12,
-        padding: '16px 20px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 12,
-      }}
-    >
-      {/* Card header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <ColorDot color={pal.dot} size={10} />
-        <span
-          style={{
-            flex: 1,
-            fontSize: 14,
-            fontWeight: 500,
-            color: 'var(--ink)',
-            minWidth: 0,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {title}
-        </span>
-        <button
-          data-testid={`thisweek-btn-${objetivo.id}`}
-          type="button"
-          title={thisWeek ? t(lang, 'removeFromWeek') : t(lang, 'scheduleThisWeek')}
-          onClick={handleThisWeekToggle}
-          style={{
-            background: thisWeek ? pal.bg : 'none',
-            border: thisWeek ? `1px solid ${pal.dot}` : '1px solid transparent',
-            borderRadius: 5,
-            padding: 3,
-            cursor: 'pointer',
-            color: thisWeek ? pal.dot : 'var(--ink-4)',
-            display: 'inline-flex',
-            alignItems: 'center',
-            transition: 'background .15s, color .15s, border-color .15s',
-          }}
-        >
-          <Icon name="calendar" size={13} />
-        </button>
-        <button
-          data-testid={`collapse-btn-${objetivo.id}`}
-          type="button"
-          aria-expanded={!collapsed}
-          onClick={() => setCollapsed((c) => !c)}
-          style={{
-            background: 'none',
-            border: 'none',
-            padding: 2,
-            cursor: 'pointer',
-            color: 'var(--ink-4)',
-            display: 'inline-flex',
-            alignItems: 'center',
-            transition: 'transform .15s',
-            transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
-          }}
-        >
-          <Icon name="chev-d" size={14} />
-        </button>
-      </div>
+    <>
+      <div
+        data-testid={`objetivo-card-${objetivo.id}`}
+        style={{
+          background: completed ? 'var(--bg-2)' : 'var(--panel)',
+          border: '1px solid var(--line-2)',
+          borderRadius: 12,
+          padding: '16px 20px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 12,
+          opacity: completed ? 0.7 : 1,
+          transition: 'opacity .2s, background .2s',
+        }}
+      >
+        {/* Card header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <ColorDot color={pal.dot} size={10} />
+          <span
+            style={{
+              flex: 1,
+              fontSize: 14,
+              fontWeight: 500,
+              color: completed ? 'var(--ink-3)' : 'var(--ink)',
+              textDecoration: completed ? 'line-through' : 'none',
+              minWidth: 0,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {title}
+          </span>
 
-      {/* Progress bar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <ProgressBar
-          value={progress}
-          color={pal.dot}
-          track={pal.bg}
-          height={5}
-          style={{ flex: 1 }}
-        />
-        <span
-          className="mono"
-          style={{ fontSize: 11, color: 'var(--ink-4)', flexShrink: 0 }}
-        >
-          {doneTareas}/{totalTareas}
-        </span>
-      </div>
+          {/* Complete toggle */}
+          <button
+            type="button"
+            title={completed ? t(lang, 'markPending') : t(lang, 'markCompleted')}
+            onClick={handleCompleteToggle}
+            style={{
+              ...iconBtnStyle,
+              background: completed ? pal.bg : 'none',
+              border: completed ? `1px solid ${pal.dot}` : '1px solid transparent',
+              color: completed ? pal.dot : 'var(--ink-4)',
+            }}
+          >
+            <Icon name="check" size={13} />
+          </button>
 
-      {/* Collapsible task list */}
-      {!collapsed && (
-        <div
-          data-testid={`task-list-${objetivo.id}`}
-          style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
-        >
-          {tareas.map((tarea) => {
-            const tareaTitle = lang === 'en' && tarea.title_en ? tarea.title_en : tarea.title;
-            return (
-              <div
-                key={tarea.id}
-                data-testid={`tarea-row-${tarea.id}`}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                }}
-              >
-                <Check
-                  checked={tarea.done}
-                  onChange={() => handleToggleTarea(tarea.id)}
-                  size={15}
-                />
-                <span
+          {/* Edit */}
+          <button
+            type="button"
+            title={t(lang, 'editObjective')}
+            onClick={() => setShowEdit(true)}
+            style={{ ...iconBtnStyle, color: 'var(--ink-4)' }}
+          >
+            <Icon name="edit" size={13} />
+          </button>
+
+          {/* Delete */}
+          <button
+            type="button"
+            title={t(lang, 'deleteObjective')}
+            onClick={() => setShowDelete(true)}
+            style={{ ...iconBtnStyle, color: 'var(--ink-4)' }}
+          >
+            <Icon name="trash" size={13} />
+          </button>
+
+          {/* This week */}
+          <button
+            data-testid={`thisweek-btn-${objetivo.id}`}
+            type="button"
+            title={thisWeek ? t(lang, 'removeFromWeek') : t(lang, 'scheduleThisWeek')}
+            onClick={handleThisWeekToggle}
+            style={{
+              ...iconBtnStyle,
+              background: thisWeek ? pal.bg : 'none',
+              border: thisWeek ? `1px solid ${pal.dot}` : '1px solid transparent',
+              color: thisWeek ? pal.dot : 'var(--ink-4)',
+            }}
+          >
+            <Icon name="calendar" size={13} />
+          </button>
+
+          {/* Collapse */}
+          <button
+            data-testid={`collapse-btn-${objetivo.id}`}
+            type="button"
+            aria-expanded={!collapsed}
+            onClick={() => setCollapsed((c) => !c)}
+            style={{
+              ...iconBtnStyle,
+              color: 'var(--ink-4)',
+              transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
+            }}
+          >
+            <Icon name="chev-d" size={14} />
+          </button>
+        </div>
+
+        {/* Progress bar */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <ProgressBar
+            value={progress}
+            color={pal.dot}
+            track={pal.bg}
+            height={5}
+            style={{ flex: 1 }}
+          />
+          <span
+            className="mono"
+            style={{ fontSize: 11, color: 'var(--ink-4)', flexShrink: 0 }}
+          >
+            {doneTareas}/{totalTareas}
+          </span>
+        </div>
+
+        {/* Collapsible task list */}
+        {!collapsed && (
+          <div
+            data-testid={`task-list-${objetivo.id}`}
+            style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
+          >
+            {tareas.map((tarea) => {
+              const tareaTitle = lang === 'en' && tarea.title_en ? tarea.title_en : tarea.title;
+              return (
+                <div
+                  key={tarea.id}
+                  data-testid={`tarea-row-${tarea.id}`}
                   style={{
-                    flex: 1,
-                    fontSize: 13,
-                    color: tarea.done ? 'var(--ink-4)' : 'var(--ink)',
-                    textDecoration: tarea.done ? 'line-through' : 'none',
-                    minWidth: 0,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
                   }}
                 >
-                  {tareaTitle}
-                </span>
-                <span
-                  className="mono"
-                  style={{ fontSize: 11, color: 'var(--ink-4)', flexShrink: 0 }}
-                >
-                  {DAY_NAMES[tarea.day] ?? tarea.day}
-                </span>
-              </div>
-            );
-          })}
+                  <Check
+                    checked={tarea.done}
+                    onChange={() => handleToggleTarea(tarea.id)}
+                    size={15}
+                  />
+                  <span
+                    style={{
+                      flex: 1,
+                      fontSize: 13,
+                      color: tarea.done ? 'var(--ink-4)' : 'var(--ink)',
+                      textDecoration: tarea.done ? 'line-through' : 'none',
+                      minWidth: 0,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {tareaTitle}
+                  </span>
+                  <span
+                    className="mono"
+                    style={{ fontSize: 11, color: 'var(--ink-4)', flexShrink: 0 }}
+                  >
+                    {DAY_NAMES[tarea.day] ?? tarea.day}
+                  </span>
+                </div>
+              );
+            })}
 
-          {showAddForm ? (
-            <AddTareaForm
-              objId={objetivo.id}
-              lang={lang}
-              onAdd={handleTareaAdded}
-              onCancel={() => setShowAddForm(false)}
-            />
-          ) : (
-            <button
-              data-testid={`add-tarea-btn-${objetivo.id}`}
-              type="button"
-              onClick={() => setShowAddForm(true)}
-              style={{
-                background: 'none',
-                border: 'none',
-                padding: '4px 0',
-                cursor: 'pointer',
-                fontSize: 12.5,
-                color: 'var(--ink-4)',
-                textAlign: 'left',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-                fontFamily: 'inherit',
-                marginTop: 2,
-              }}
-            >
-              <Icon name="plus" size={12} />
-              {t(lang, 'addTask')}
-            </button>
-          )}
-        </div>
+            {showAddForm ? (
+              <AddTareaForm
+                objId={objetivo.id}
+                lang={lang}
+                onAdd={handleTareaAdded}
+                onCancel={() => setShowAddForm(false)}
+              />
+            ) : (
+              <button
+                data-testid={`add-tarea-btn-${objetivo.id}`}
+                type="button"
+                onClick={() => setShowAddForm(true)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: '4px 0',
+                  cursor: 'pointer',
+                  fontSize: 12.5,
+                  color: 'var(--ink-4)',
+                  textAlign: 'left',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  fontFamily: 'inherit',
+                  marginTop: 2,
+                }}
+              >
+                <Icon name="plus" size={12} />
+                {t(lang, 'addTask')}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {showEdit && (
+        <ModalEditObjetivo
+          objetivo={objetivo}
+          lang={lang}
+          onClose={() => setShowEdit(false)}
+          onSave={async (id, data) => {
+            await updateObjetivo(id, data);
+            onEdit?.(id, data);
+          }}
+        />
       )}
-    </div>
+
+      {showDelete && (
+        <ConfirmDeleteObjetivo
+          objetivo={objetivo}
+          lang={lang}
+          onClose={() => setShowDelete(false)}
+          onConfirm={async (id) => {
+            await deleteObjetivo(id);
+            onDelete?.(id);
+          }}
+        />
+      )}
+    </>
   );
 }
 
-function MetaGroup({ meta, objetivos, allTareas, lang, onObjetivoAdd }) {
+function MetaGroup({ meta, objetivos, allTareas, lang, onObjetivoAdd, onObjetivoEdit, onObjetivoDelete, onObjetivoComplete }) {
   const metaTitle = lang === 'en' && meta.title_en ? meta.title_en : meta.title;
-  const progress = metaProgress(meta.id, objetivos, allTareas);
+  const progress = metaProgress(meta.id, objetivos);
 
   return (
     <section data-testid={`meta-group-${meta.id}`} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -411,6 +776,9 @@ function MetaGroup({ meta, objetivos, allTareas, lang, onObjetivoAdd }) {
               objetivo={obj}
               tareas={objTareas}
               lang={lang}
+              onEdit={onObjetivoEdit}
+              onDelete={onObjetivoDelete}
+              onComplete={onObjetivoComplete}
             />
           );
         })}
@@ -554,6 +922,19 @@ export default function ViewObjetivos({ metas: initialMetas, objetivos: initialO
     setObjetivos((prev) => [...prev, newObj]);
   }, []);
 
+  const handleObjetivoEdit = useCallback((id, data) => {
+    setObjetivos((prev) => prev.map((o) => (o.id === id ? { ...o, ...data } : o)));
+  }, []);
+
+  const handleObjetivoDelete = useCallback((id) => {
+    setObjetivos((prev) => prev.filter((o) => o.id !== id));
+    setTareas((prev) => prev.filter((t) => t.objId !== id));
+  }, []);
+
+  const handleObjetivoComplete = useCallback((id, isDone) => {
+    setObjetivos((prev) => prev.map((o) => (o.id === id ? { ...o, done: isDone ? 1 : 0 } : o)));
+  }, []);
+
   return (
     <div
       style={{
@@ -582,6 +963,9 @@ export default function ViewObjetivos({ metas: initialMetas, objetivos: initialO
                 allTareas={tareas}
                 lang={lang}
                 onObjetivoAdd={handleObjetivoAdd}
+                onObjetivoEdit={handleObjetivoEdit}
+                onObjetivoDelete={handleObjetivoDelete}
+                onObjetivoComplete={handleObjetivoComplete}
               />
             );
           })

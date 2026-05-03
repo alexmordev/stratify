@@ -193,12 +193,7 @@ export default function ModalReview({ open, onClose }) {
           {metas.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               {metas.map((meta) => {
-                const allMetaTareas = meta.objetivos.flatMap((o) => o.tareas);
-                const pct = metaProgress(
-                  meta.id,
-                  meta.objetivos,
-                  allMetaTareas
-                );
+                const pct = metaProgress(meta.id, meta.objetivos);
 
                 return (
                   <div

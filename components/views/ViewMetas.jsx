@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import SectionHeader from '@/components/ui/SectionHeader';
 import Btn from '@/components/ui/Btn';
 import Chip from '@/components/ui/Chip';
-import ColorDot from '@/components/ui/ColorDot';
 import Donut from '@/components/ui/Donut';
 import Switch from '@/components/ui/Switch';
 import Icon from '@/components/ui/Icon';
@@ -207,7 +206,7 @@ function MetaCard({ meta, objetivos, tareas, lang, onToggle, onEdit, onDelete })
   const metaObjetivos = objetivos.filter((o) => o.metaId === meta.id);
   const metaTareas = tareas.filter((t) => metaObjetivos.some((o) => o.id === t.objId));
   const completedTareas = metaTareas.filter((t) => t.done).length;
-  const progress = metaProgress(meta.id, objetivos, tareas);
+  const progress = metaProgress(meta.id, objetivos);
 
   const title = lang === 'en' && meta.title_en ? meta.title_en : meta.title;
   const why = lang === 'en' && meta.why_en ? meta.why_en : meta.why;
@@ -270,27 +269,7 @@ function MetaCard({ meta, objetivos, tareas, lang, onToggle, onEdit, onDelete })
           </div>
         )}
 
-        {/* Row 4: Objective chips */}
-        {metaObjetivos.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 10px', alignItems: 'center' }}>
-            {metaObjetivos.map((obj) => {
-              const pal = palById(obj.color);
-              const objTitle = lang === 'en' && obj.title_en ? obj.title_en : obj.title;
-              return (
-                <span
-                  key={obj.id}
-                  data-testid={`obj-chip-${obj.id}`}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}
-                >
-                  <ColorDot color={pal.dot} size={7} />
-                  <span style={{ fontSize: 11.5, color: 'var(--ink-3)' }}>{objTitle}</span>
-                </span>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Row 5: Stats */}
+        {/* Row 4: Stats */}
         <div className="mono" style={{ fontSize: 11, color: 'var(--ink-3)' }}>
           {metaObjetivos.length} {t(lang, 'objectives')} · {metaTareas.length} {t(lang, 'tasksTotal')} · {completedTareas} {t(lang, 'tasksDone')}
         </div>
