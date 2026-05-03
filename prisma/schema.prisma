@@ -36,6 +36,7 @@ model Hito {
   fecha_objetivo        DateTime?
   puente_con_meta       String     @db.Text
   color                 String     @default("sand")
+  done                  Boolean    @default(false)
   objetivos             Objetivo[]
   createdAt             DateTime   @default(now())
 }
@@ -66,8 +67,8 @@ model Tarea {
   objetivo  Objetivo  @relation(fields: [objId], references: [id], onDelete: Cascade)
   title     String
   title_en  String
-  day       Int
-  start     Float
+  day       Int?      // was Int — now nullable for backlog support
+  start     Float?    // was Float — now nullable for backlog support
   dur       Float
   done      Boolean   @default(false)
   subtasks  Json?
