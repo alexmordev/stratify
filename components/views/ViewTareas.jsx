@@ -493,16 +493,23 @@ function DayColumn({
   );
 }
 
-function TaskDetailPanel({ tarea, lang, position, onClose, onUpdate, onDelete }) {
+function TaskDetailPanel({ tarea, lang, position, onClose, onUpdate, onUpdateSilent, onDelete }) {
   const [title, setTitle] = useState(tarea.title);
   const [dur, setDur] = useState(tarea.dur);
   const [saving, setSaving] = useState(false);
+  const [detailsMode, setDetailsMode] = useState(() => {
+    const subs = parseSubtasks(tarea.subtasks);
+    if (tarea.notes && !subs.length) return 'text';
+    return 'list';
+  });
+  const [subtaskItems, setSubtaskItems] = useState(() => parseSubtasks(tarea.subtasks));
+  const [subtaskDraft, setSubtaskDraft] = useState('');
+  const [notesDraft, setNotesDraft] = useState(tarea.notes ?? '');
 
   const pal = palById(tarea.objetivo?.color ?? 'sand');
   const objTitle = lang === 'en' && tarea.objetivo?.title_en
     ? tarea.objetivo.title_en
     : tarea.objetivo?.title ?? '';
-  const subtasks = parseSubtasks(tarea.subtasks);
   const sessions = Math.max(1, Math.round(dur * 2));
   const fmt = (h) => h != null
     ? `${String(Math.floor(h) % 24).padStart(2, '0')}:${h % 1 === 0.5 ? '30' : '00'}`
@@ -515,6 +522,8 @@ function TaskDetailPanel({ tarea, lang, position, onClose, onUpdate, onDelete })
   useEffect(() => {
     setTitle(tarea.title);
     setDur(tarea.dur);
+    setSubtaskItems(parseSubtasks(tarea.subtasks));
+    setNotesDraft(tarea.notes ?? '');
   }, [tarea.id]);
 
   useEffect(() => {
@@ -528,17 +537,44 @@ function TaskDetailPanel({ tarea, lang, position, onClose, onUpdate, onDelete })
     const newSessions = Math.max(1, Math.round(dur * 2));
     setSaving(true);
     try {
-      await onUpdate(tarea.id, { title: title.trim(), title_en: title.trim(), dur, sessions: newSessions });
+      await onUpdate(tarea.id, {
+        title: title.trim(), title_en: title.trim(),
+        dur, sessions: newSessions,
+        notes: notesDraft || null,
+      });
     } finally {
       setSaving(false);
     }
   }
 
-  const PANEL_W = 308;
+  function toggleSubtask(i) {
+    const updated = subtaskItems.map((s, idx) => idx === i ? { ...s, d: !s.d } : s);
+    setSubtaskItems(updated);
+    onUpdateSilent(tarea.id, { subtasks: updated });
+  }
+
+  function removeSubtask(i) {
+    const updated = subtaskItems.filter((_, idx) => idx !== i);
+    setSubtaskItems(updated);
+    onUpdateSilent(tarea.id, { subtasks: updated });
+  }
+
+  function handleSubtaskKeyDown(e) {
+    if (e.key === 'Enter' && subtaskDraft.trim()) {
+      e.preventDefault();
+      const updated = [...subtaskItems, { t: subtaskDraft.trim(), d: false }];
+      setSubtaskItems(updated);
+      setSubtaskDraft('');
+      onUpdateSilent(tarea.id, { subtasks: updated });
+    }
+    if (e.key === 'Escape') setSubtaskDraft('');
+  }
+
+  const PANEL_W = 320;
   const panelPos = position
     ? {
         left: Math.min(position.x + 12, window.innerWidth - PANEL_W - 20),
-        top: Math.min(position.y - 20, window.innerHeight - 460),
+        top: Math.min(position.y - 20, window.innerHeight - 520),
       }
     : { left: '50%', top: '50%', transform: 'translate(-50%,-50%)' };
 
@@ -553,13 +589,14 @@ function TaskDetailPanel({ tarea, lang, position, onClose, onUpdate, onDelete })
           position: 'absolute',
           ...panelPos,
           width: PANEL_W,
+          maxHeight: '90vh',
+          overflowY: 'auto',
           background: 'var(--bg)',
           borderRadius: 12,
           border: '1px solid var(--line)',
           boxShadow: '0 12px 36px rgba(0,0,0,0.13), 0 2px 8px rgba(0,0,0,0.07)',
           display: 'flex',
           flexDirection: 'column',
-          overflow: 'hidden',
         }}
       >
         {/* Accent bar */}
@@ -573,16 +610,11 @@ function TaskDetailPanel({ tarea, lang, position, onClose, onUpdate, onDelete })
             onChange={(e) => setTitle(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); }}
             style={{
-              flex: 1,
-              border: 'none',
+              flex: 1, border: 'none',
               borderBottom: `2px solid ${title !== tarea.title ? pal.dot : 'var(--line)'}`,
-              padding: '2px 0 5px',
-              fontSize: 14,
-              fontWeight: 600,
-              fontFamily: 'inherit',
-              color: 'var(--ink)',
-              background: 'transparent',
-              outline: 'none',
+              padding: '2px 0 5px', fontSize: 14, fontWeight: 600,
+              fontFamily: 'inherit', color: 'var(--ink)',
+              background: 'transparent', outline: 'none',
             }}
           />
           <button
@@ -625,13 +657,9 @@ function TaskDetailPanel({ tarea, lang, position, onClose, onUpdate, onDelete })
                   border: 'none',
                   background: dur === d ? 'var(--ink)' : 'var(--bg-2)',
                   color: dur === d ? 'white' : 'var(--ink-3)',
-                  borderRadius: 6,
-                  padding: '3px 7px',
-                  fontSize: 11,
-                  cursor: 'pointer',
-                  fontFamily: 'inherit',
-                  fontWeight: dur === d ? 600 : 400,
-                  transition: 'all 0.1s',
+                  borderRadius: 6, padding: '3px 7px', fontSize: 11,
+                  cursor: 'pointer', fontFamily: 'inherit',
+                  fontWeight: dur === d ? 600 : 400, transition: 'all 0.1s',
                 }}
               >
                 {d}h
@@ -645,43 +673,104 @@ function TaskDetailPanel({ tarea, lang, position, onClose, onUpdate, onDelete })
           </span>
         </div>
 
-        {/* Subtasks */}
-        {subtasks.length > 0 && (
-          <div style={{ padding: '10px 14px', borderTop: '1px solid var(--line-2)', maxHeight: 130, overflowY: 'auto' }}>
-            <div style={{ fontSize: 10.5, color: 'var(--ink-4)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              {lang === 'en' ? 'Subtasks' : 'Subtareas'} · {subtasks.filter(s => s.d).length}/{subtasks.length}
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              {subtasks.map((st, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+        {/* Details (lista / notas) */}
+        <div style={{ padding: '10px 14px', borderTop: '1px solid var(--line-2)' }}>
+          {/* Mode toggle */}
+          <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
+            {[
+              ['list', lang === 'es' ? '☑ Lista' : '☑ List'],
+              ['text', lang === 'es' ? '≡ Notas' : '≡ Notes'],
+            ].map(([mode, label]) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setDetailsMode(mode)}
+                style={{
+                  border: 'none', borderRadius: 5, padding: '2px 8px', fontSize: 11,
+                  background: detailsMode === mode ? 'var(--bg-2)' : 'transparent',
+                  color: detailsMode === mode ? 'var(--ink)' : 'var(--ink-4)',
+                  cursor: 'pointer', fontFamily: 'inherit',
+                  boxShadow: detailsMode === mode ? '0 0 0 1px var(--line)' : 'none',
+                }}
+              >{label}</button>
+            ))}
+          </div>
+
+          {/* List mode */}
+          {detailsMode === 'list' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {subtaskItems.map((st, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => toggleSubtask(i)}
+                    style={{
+                      width: 15, height: 15, borderRadius: 3, padding: 0, flexShrink: 0,
+                      border: `1.5px solid ${st.d ? pal.dot : 'var(--line)'}`,
+                      background: st.d ? pal.dot : 'transparent',
+                      cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}
+                  >
+                    {st.d && <Icon name="check" size={9} />}
+                  </button>
                   <span style={{
-                    width: 10, height: 10, borderRadius: 3,
-                    border: `1.5px solid ${st.d ? pal.dot : 'var(--line)'}`,
-                    background: st.d ? pal.bg : 'transparent',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                  }}>
-                    {st.d && <Icon name="check" size={7} style={{ color: pal.fg }} />}
-                  </span>
-                  <span style={{
-                    fontSize: 12, color: st.d ? 'var(--ink-4)' : 'var(--ink-2)',
+                    flex: 1, fontSize: 12.5, lineHeight: 1.4,
+                    color: st.d ? 'var(--ink-4)' : 'var(--ink-2)',
                     textDecoration: st.d ? 'line-through' : 'none',
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   }}>
                     {st.t}
                   </span>
+                  <button
+                    type="button"
+                    onClick={() => removeSubtask(i)}
+                    style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--ink-4)', padding: 2, display: 'flex', alignItems: 'center', flexShrink: 0 }}
+                  >
+                    <Icon name="x" size={11} />
+                  </button>
                 </div>
               ))}
+              {subtaskItems.length > 0 && (
+                <div className="mono" style={{ fontSize: 10.5, color: 'var(--ink-4)', marginBottom: 2 }}>
+                  {subtaskItems.filter(s => s.d).length}/{subtaskItems.length} {lang === 'es' ? 'completados' : 'done'}
+                </div>
+              )}
+              <input
+                value={subtaskDraft}
+                onChange={(e) => setSubtaskDraft(e.target.value)}
+                onKeyDown={handleSubtaskKeyDown}
+                placeholder={lang === 'es' ? '+ Agregar elemento…' : '+ Add item…'}
+                style={{
+                  border: 'none', borderBottom: '1px solid var(--line-2)',
+                  background: 'transparent', fontSize: 12.5, color: 'var(--ink)',
+                  outline: 'none', width: '100%', padding: '3px 0',
+                  fontFamily: 'inherit',
+                }}
+              />
             </div>
-          </div>
-        )}
+          )}
+
+          {/* Text mode */}
+          {detailsMode === 'text' && (
+            <textarea
+              value={notesDraft}
+              onChange={(e) => setNotesDraft(e.target.value)}
+              placeholder={lang === 'es' ? 'Agregar notas…' : 'Add notes…'}
+              style={{
+                width: '100%', border: 'none',
+                borderBottom: '1px solid var(--line-2)',
+                background: 'transparent', fontSize: 12.5, color: 'var(--ink)',
+                outline: 'none', resize: 'vertical', minHeight: 80,
+                padding: '2px 0', fontFamily: 'inherit', lineHeight: 1.55,
+                boxSizing: 'border-box',
+              }}
+            />
+          )}
+        </div>
 
         {/* Actions */}
         <div style={{
-          padding: '10px 14px 14px',
-          borderTop: '1px solid var(--line-2)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
+          padding: '10px 14px 14px', borderTop: '1px solid var(--line-2)',
+          display: 'flex', alignItems: 'center', gap: 8,
         }}>
           <button
             type="button"
@@ -1082,6 +1171,11 @@ export default function ViewTareas({ tareas: initialTareas, objetivos, metas = [
     try { await updateTarea(id, data); } catch {}
   }
 
+  async function handleTaskUpdateSilent(id, data) {
+    setTareas(prev => prev.map(t => t.id === id ? { ...t, ...data } : t));
+    try { await updateTarea(id, data); } catch {}
+  }
+
   async function handleTaskDelete(id) {
     setTareas(prev => prev.filter(t => t.id !== id));
     setDetailTask(null);
@@ -1403,6 +1497,7 @@ export default function ViewTareas({ tareas: initialTareas, objetivos, metas = [
             lang={lang}
             onClose={() => setDetailTask(null)}
             onUpdate={handleTaskUpdate}
+            onUpdateSilent={handleTaskUpdateSilent}
             onDelete={handleTaskDelete}
           />
         );

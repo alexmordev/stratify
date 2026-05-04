@@ -60,6 +60,11 @@ const icons = {
       <path d="M3 3l10 10M13 3L3 13" />
     </svg>
   ),
+  notes: (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <path d="M3 4h10M3 8h10M3 12h6" />
+    </svg>
+  ),
   more: (
     <svg viewBox="0 0 16 16" fill="currentColor">
       <circle cx="4" cy="8" r="1.2" />

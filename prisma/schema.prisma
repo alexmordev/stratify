@@ -73,6 +73,7 @@ model Tarea {
   dur       Float
   done      Boolean   @default(false)
   subtasks  Json?
+  notes     String?   @db.Text
   sessions  Int       @default(1)
   dueDate   DateTime?
   sortOrder Int       @default(0)
