@@ -12,7 +12,7 @@ import Btn from '@/components/ui/Btn';
 import { t } from '@/lib/i18n';
 import { palById } from '@/lib/palette';
 import { toggleMetaActive } from '@/lib/actions/metas';
-import { createObjetivo, updateObjetivo, deleteObjetivo } from '@/lib/actions/objetivos';
+import { createObjetivo, updateObjetivo, deleteObjetivo, toggleObjetivoThisWeek } from '@/lib/actions/objetivos';
 import { toggleTarea, reorderTareas, unscheduleTarea } from '@/lib/actions/tareas';
 import { toggleHitoDone, createHito } from '@/lib/actions/hitos';
 import WizardAgent from '@/components/modals/WizardAgent';
@@ -149,7 +149,56 @@ function MetaRow({ meta, isSelected, pct, lang, onSelect }) {
   );
 }
 
-function ObjectiveCard({ objetivo, allTareas, lang, onTaskToggle, onTaskUnschedule, onReorder }) {
+function ObjetivoWeekRow({ objetivo, isSelected, allTareas, lang, onSelect }) {
+  const pal = palById(objetivo.color);
+  const tks = allTareas.filter(t => t.objId === objetivo.id);
+  const done = tks.filter(t => t.done).length;
+  const pct = tks.length ? Math.round((done / tks.length) * 100) : 0;
+  const title = lang === 'en' && objetivo.title_en ? objetivo.title_en : objetivo.title;
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(objetivo.metaId)}
+      style={{
+        width: '100%', textAlign: 'left',
+        display: 'grid', gridTemplateColumns: '8px 1fr', gap: 10,
+        alignItems: 'start', padding: '8px 12px',
+        border: 'none', cursor: 'pointer',
+        background: isSelected ? 'var(--panel)' : 'transparent',
+        borderLeft: isSelected ? `2px solid ${pal.dot}` : '2px solid transparent',
+        paddingLeft: isSelected ? 10 : 12,
+        transition: 'background .12s ease',
+      }}
+    >
+      <span style={{
+        width: 7, height: 7, borderRadius: '50%', marginTop: 6,
+        display: 'block', flexShrink: 0,
+        background: pal.dot,
+      }} />
+      <div style={{ minWidth: 0 }}>
+        <div style={{
+          fontSize: 12.5, fontWeight: isSelected ? 500 : 400,
+          color: 'var(--ink)', lineHeight: 1.35,
+          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+          overflow: 'hidden',
+        }}>
+          {title}
+        </div>
+        {tks.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5 }}>
+            <div style={{ flex: 1 }}>
+              <ProgressBar value={pct} color={pal.dot} height={2} />
+            </div>
+            <span className="mono" style={{ fontSize: 10, color: 'var(--ink-4)' }}>{done}/{tks.length}</span>
+          </div>
+        )}
+      </div>
+    </button>
+  );
+}
+
+function ObjectiveCard({ objetivo, allTareas, lang, onTaskToggle, onTaskUnschedule, onReorder, onThisWeekToggle }) {
   const [isOpen, setIsOpen] = useState(true);
   const [sortMode, setSortMode] = useState('order');
   const [dragId, setDragId] = useState(null);
@@ -202,6 +251,20 @@ function ObjectiveCard({ objetivo, allTareas, lang, onTaskToggle, onTaskUnschedu
           <span className="mono" style={{ fontSize: 11, color: 'var(--ink-3)' }}>
             {doneSes}/{totalSes} {t(lang, 'sessionShort')}
           </span>
+          <button
+            type="button"
+            title={objetivo.thisWeek ? (lang === 'es' ? 'Quitar de esta semana' : 'Remove from this week') : (lang === 'es' ? 'Trabajar esta semana' : 'Work this week')}
+            onClick={() => onThisWeekToggle?.(objetivo.id)}
+            style={{
+              border: objetivo.thisWeek ? `1px solid ${pal.dot}` : '1px solid transparent',
+              background: objetivo.thisWeek ? pal.bg : 'transparent',
+              color: objetivo.thisWeek ? pal.dot : 'var(--ink-4)',
+              borderRadius: 6, padding: '3px 5px', cursor: 'pointer',
+              display: 'flex', alignItems: 'center',
+            }}
+          >
+            <Icon name="calendar" size={13} />
+          </button>
           <button
             type="button"
             onClick={() => setIsOpen(v => !v)}
@@ -488,6 +551,7 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
   const router = useRouter();
   const [lang, setLang] = useState('es');
   const [metas, setMetas] = useState(initialMetas);
+  const [objetivos, setObjetivos] = useState(initialObjetivos);
   const [tareas, setTareas] = useState(initialTareas);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [generateModal, setGenerateModal] = useState(null);
@@ -512,7 +576,7 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
   const [openHitos, setOpenHitos] = useState(true);
 
   const metaObjetivos = selectedMeta
-    ? (initialObjetivos.filter(o => o.metaId === selectedMeta.id))
+    ? (objetivos.filter(o => o.metaId === selectedMeta.id))
     : [];
   const metaTareas = tareas.filter(t => metaObjetivos.some(o => o.id === t.objId));
   const metaDone = metaTareas.filter(t => t.done).length;
@@ -525,7 +589,7 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
     : 0;
 
   function calcMetaPct(meta) {
-    const objs = initialObjetivos.filter(o => o.metaId === meta.id);
+    const objs = objetivos.filter(o => o.metaId === meta.id);
     const tks = tareas.filter(t => objs.some(o => o.id === t.objId));
     return tks.length ? Math.round((tks.filter(t => t.done).length / tks.length) * 100) : 0;
   }
@@ -569,6 +633,12 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
     ).catch(() => {});
   }
 
+  async function handleThisWeekToggle(objId) {
+    setObjetivos(prev => prev.map(o => o.id === objId ? { ...o, thisWeek: !o.thisWeek } : o));
+    try { await toggleObjetivoThisWeek(objId); }
+    catch { setObjetivos(prev => prev.map(o => o.id === objId ? { ...o, thisWeek: !o.thisWeek } : o)); }
+  }
+
   async function handleToggleHito(hitoId) {
     setMetas(prev => prev.map(m => ({
       ...m,
@@ -605,6 +675,7 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
 
   const activeMetas = metas.filter(m => m.active);
   const inactiveMetas = metas.filter(m => !m.active);
+  const thisWeekObjetivos = objetivos.filter(o => o.thisWeek);
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', height: '100vh', minHeight: 0, overflow: 'hidden' }}>
@@ -637,7 +708,29 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
+          {/* Esta Semana */}
           <div style={{ padding: '6px 14px 4px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+            <span className="mono" style={{ fontSize: 10.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
+              {lang === 'es' ? 'Esta semana' : 'This week'}
+            </span>
+            <span className="mono" style={{ fontSize: 10.5, color: 'var(--ink-4)' }}>{thisWeekObjetivos.length}</span>
+          </div>
+          {thisWeekObjetivos.map(o => (
+            <ObjetivoWeekRow
+              key={o.id}
+              objetivo={o}
+              isSelected={o.metaId === selectedId}
+              allTareas={tareas}
+              lang={lang}
+              onSelect={setSelectedId}
+            />
+          ))}
+          {thisWeekObjetivos.length === 0 && (
+            <div style={{ padding: '8px 14px', fontSize: 12, color: 'var(--ink-4)' }}>—</div>
+          )}
+
+          {/* Todas las metas */}
+          <div style={{ padding: '14px 14px 4px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginTop: 4 }}>
             <span className="mono" style={{ fontSize: 10.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
               {t(lang, 'active')}
             </span>
@@ -647,7 +740,7 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
             <MetaRow key={m.id} meta={m} isSelected={m.id === selectedId} pct={calcMetaPct(m)} lang={lang} onSelect={setSelectedId} />
           ))}
           {activeMetas.length === 0 && (
-            <div style={{ padding: '12px 14px', fontSize: 12, color: 'var(--ink-4)' }}>—</div>
+            <div style={{ padding: '8px 14px', fontSize: 12, color: 'var(--ink-4)' }}>—</div>
           )}
 
           {inactiveMetas.length > 0 && (
@@ -793,6 +886,7 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
                       onTaskToggle={handleTaskToggle}
                       onTaskUnschedule={handleUnschedule}
                       onReorder={handleReorder}
+                      onThisWeekToggle={handleThisWeekToggle}
                     />
                   ))
                 )}

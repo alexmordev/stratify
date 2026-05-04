@@ -1,8 +1,10 @@
 ---
 name: context-agent
 description: Agent responsible for retrieving structured, indexed context with references and source paths.
-model: gemini 3.1 Pro
-color: yellow
+mode: subagent
+tools: 
+  write: true
+  edit: false
 ---
 
 ## Role

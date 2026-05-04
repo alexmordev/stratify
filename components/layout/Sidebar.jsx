@@ -222,8 +222,8 @@ export default function Sidebar({ onSearchOpen, onReviewOpen, onNewGoal }) {
         })}
       </div>
 
-      {/* Active metas section */}
-      {activeMetas.length > 0 && (
+      {/* This week objetivos section */}
+      {thisWeekObjetivos.length > 0 && (
         <div style={{ padding: '10px 10px 4px' }}>
           <div
             className="mono"
@@ -237,37 +237,39 @@ export default function Sidebar({ onSearchOpen, onReviewOpen, onNewGoal }) {
           >
             {t(lang, 'thisWeek')}
           </div>
-          {activeMetas.map((meta) => (
-            <div
-              key={meta.id}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '5px 6px',
-              }}
-            >
-              <span
-                className="pulse"
+          {thisWeekObjetivos.map((obj) => {
+            const pal = palById(obj.color ?? 'sand');
+            return (
+              <div
+                key={obj.id}
                 style={{
-                  width: 6, height: 6, borderRadius: '50%',
-                  background: 'oklch(0.62 0.14 145)',
-                  display: 'block', flexShrink: 0,
-                }}
-              />
-              <span
-                style={{
-                  fontSize: 12.5,
-                  color: 'var(--ink)',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '5px 6px',
                 }}
               >
-                {lang === 'en' && meta.title_en ? meta.title_en : meta.title}
-              </span>
-            </div>
-          ))}
+                <span
+                  style={{
+                    width: 6, height: 6, borderRadius: '50%',
+                    background: pal.dot,
+                    display: 'block', flexShrink: 0,
+                  }}
+                />
+                <span
+                  style={{
+                    fontSize: 12.5,
+                    color: 'var(--ink)',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {lang === 'en' && obj.title_en ? obj.title_en : obj.title}
+                </span>
+              </div>
+            );
+          })}
         </div>
       )}
 
