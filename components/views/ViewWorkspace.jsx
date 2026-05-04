@@ -13,11 +13,13 @@ import { t } from '@/lib/i18n';
 import { PALETTE, palById } from '@/lib/palette';
 import { toggleMetaActive, createMeta, updateMetaColor } from '@/lib/actions/metas';
 import { createObjetivo, updateObjetivo, deleteObjetivo, toggleObjetivoThisWeek, toggleObjetivoCompleted } from '@/lib/actions/objetivos';
-import { toggleTarea, reorderTareas, unscheduleTarea } from '@/lib/actions/tareas';
+import { toggleTarea, reorderTareas, unscheduleTarea, createTarea, updateTarea, deleteTarea } from '@/lib/actions/tareas';
 import { toggleHitoDone, createHito, updateHito } from '@/lib/actions/hitos';
 import NewMetaForm from '@/components/modals/NewMetaForm';
 import WizardAgent from '@/components/modals/WizardAgent';
 import GenerateObjetivosModal from '@/components/modals/GenerateObjetivosModal';
+import TaskItem from '@/components/views/TaskItem';
+import NewTaskForm from '@/components/views/NewTaskForm';
 
 function getLang() {
   if (typeof window === 'undefined') return 'es';
@@ -223,7 +225,7 @@ function ObjetivoWeekRow({ objetivo, isSelected, allTareas, lang, onSelect }) {
   );
 }
 
-function ObjectiveCard({ objetivo, allTareas, lang, onTaskToggle, onTaskUnschedule, onReorder, onThisWeekToggle, onDone, onEdit, onDelete }) {
+function ObjectiveCard({ objetivo, allTareas, lang, onTaskToggle, onTaskUnschedule, onReorder, onThisWeekToggle, onDone, onEdit, onDelete, onCreateTask, onUpdateTask, onDeleteTask, onMoveTaskToEnd }) {
   const [isOpen, setIsOpen] = useState(true);
   const [sortMode, setSortMode] = useState('order');
   const [dragId, setDragId] = useState(null);
@@ -231,6 +233,33 @@ function ObjectiveCard({ objetivo, allTareas, lang, onTaskToggle, onTaskUnschedu
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [newTaskObjId, setNewTaskObjId] = useState(null);
+  
+  function startCreateTask(objId) {
+    setNewTaskObjId(objId);
+  }
+  
+  function cancelCreateTask() {
+    setNewTaskObjId(null);
+  }
+  
+  async function saveNewTask(title) {
+    if (!newTaskObjId) return;
+    
+    try {
+      const newTask = await createTarea({
+        objId: newTaskObjId,
+        title: title,
+        title_en: title,
+        dur: 1,
+        sessions: 1,
+      });
+      setTareas(prev => [...prev, newTask]);
+      setNewTaskObjId(null);
+    } catch (error) {
+      console.error('Error creating task:', error);
+    }
+  }
 
   const pal = palById(objetivo.color);
   const isDone = Boolean(objetivo.done);
@@ -436,7 +465,6 @@ function ObjectiveCard({ objetivo, allTareas, lang, onTaskToggle, onTaskUnschedu
           </div>
 
           {sorted.map((task, idx) => {
-            const taskTitle = lang === 'en' && task.title_en ? task.title_en : task.title;
             const isDragging = dragId === task.id;
             const isDropBefore = dragOver?.beforeIdx === idx;
 
@@ -455,69 +483,14 @@ function ObjectiveCard({ objetivo, allTareas, lang, onTaskToggle, onTaskUnschedu
                     }}
                   />
                 )}
-                <div
-                  draggable={sortMode === 'order'}
-                  onDragStart={(e) => handleDragStart(e, task.id)}
-                  onDragEnd={handleDragEnd}
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: '14px 16px 1fr auto auto auto auto',
-                    alignItems: 'center', gap: 10,
-                    padding: '8px 14px',
-                    borderBottom: '1px solid var(--line-2)',
-                    cursor: sortMode === 'order' ? 'grab' : 'default',
-                    opacity: isDragging ? 0.4 : 1,
-                    background: (task.day == null) ? 'oklch(0.985 0.005 90)' : 'transparent',
-                  }}
-                >
-                  <Icon name="drag" size={12} />
-                  <Check
-                    checked={task.done}
-                    onChange={() => onTaskToggle && onTaskToggle(task.id)}
-                    size={16}
-                  />
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                    <span style={{
-                      fontSize: 12.5,
-                      textDecoration: task.done ? 'line-through' : 'none',
-                      color: task.done ? 'var(--ink-4)' : 'var(--ink)',
-                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                    }}>{taskTitle}</span>
-                    {task.day == null && (
-                      <span className="mono" style={{
-                        fontSize: 10.5, padding: '2px 7px', borderRadius: 999,
-                        background: 'var(--bg-2)', color: 'var(--ink-2)',
-                        border: '1px solid var(--line-2)', whiteSpace: 'nowrap', flexShrink: 0,
-                      }}>{t(lang, 'backlog')}</span>
-                    )}
-                  </div>
-                  <div title={t(lang, 'pomodoro')} style={{ display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
-                    {Array.from({ length: Math.min(task.sessions ?? 0, 6) }).map((_, i) => (
-                      <span key={i} style={{ width: 4, height: 10, borderRadius: 1, background: pal.dot, opacity: 0.55 }} />
-                    ))}
-                    <span className="mono" style={{ fontSize: 10.5, marginLeft: 4, minWidth: 18, color: 'var(--ink-3)' }}>
-                      {task.sessions ?? 0}×25
-                    </span>
-                  </div>
-                  <span className="mono" style={{ fontSize: 10.5, minWidth: 56, textAlign: 'right', color: 'var(--ink-3)' }}>
-                    {fmtDue(task.dueDate, lang)}
-                  </span>
-                  <span className="mono" style={{ fontSize: 10.5, minWidth: 28, textAlign: 'right', color: 'var(--ink-4)' }}>
-                    {task.day != null ? (dayLabels[task.day] ?? '—').toLowerCase() : '—'}
-                  </span>
-                  {task.day != null ? (
-                    <button
-                      type="button"
-                      title={t(lang, 'unschedule')}
-                      onClick={() => onTaskUnschedule && onTaskUnschedule(task.id)}
-                      style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--ink-4)', padding: 2 }}
-                    >
-                      <Icon name="x" size={12} />
-                    </button>
-                  ) : (
-                    <span style={{ width: 16 }} />
-                  )}
-                </div>
+                <TaskItem
+                  task={task}
+                  lang={lang}
+                  onToggle={onTaskToggle}
+                  onDelete={onDeleteTask}
+                  onUpdate={onUpdateTask}
+                  onMoveToEnd={onMoveTaskToEnd}
+                />
               </div>
             );
           })}
@@ -535,6 +508,72 @@ function ObjectiveCard({ objetivo, allTareas, lang, onTaskToggle, onTaskUnschedu
               }}
             />
           )}
+          
+          {/* Formulario para agregar nueva tarea */}
+          {newTaskObjId === objetivo.id ? (
+            <NewTaskForm
+              lang={lang}
+              onSave={saveNewTask}
+              onCancel={cancelCreateTask}
+            />
+          ) : (
+            <div style={{ padding: '8px 14px' }}>
+              <button
+                type="button"
+                onClick={() => startCreateTask(objetivo.id)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  border: '1px dashed var(--line)', background: 'transparent',
+                  borderRadius: 6, padding: '6px 10px', cursor: 'pointer',
+                  color: 'var(--ink-3)', fontSize: 12,
+                  width: '100%', justifyContent: 'center',
+                }}
+              >
+                <Icon name="plus" size={12} />
+                {lang === 'es' ? 'Agregar tarea' : 'Add task'}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+          
+          {/* Botón para agregar nueva tarea */}
+          <div style={{ padding: '8px 14px' }}>
+            <button
+              type="button"
+              onClick={() => handleCreateTask(objetivo.id)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                border: '1px dashed var(--line)', background: 'transparent',
+                borderRadius: 6, padding: '6px 10px', cursor: 'pointer',
+                color: 'var(--ink-3)', fontSize: 12,
+                width: '100%', justifyContent: 'center',
+              }}
+            >
+              <Icon name="plus" size={12} />
+              {lang === 'es' ? 'Agregar tarea' : 'Add task'}
+            </button>
+          </div>
+        </div>
+      )}
+          
+          {/* Botón para agregar nueva tarea */}
+          <div style={{ padding: '8px 14px' }}>
+            <button
+              type="button"
+              onClick={() => handleCreateTask(objetivo.id)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                border: '1px dashed var(--line)', background: 'transparent',
+                borderRadius: 6, padding: '6px 10px', cursor: 'pointer',
+                color: 'var(--ink-3)', fontSize: 12,
+                width: '100%', justifyContent: 'center',
+              }}
+            >
+              <Icon name="plus" size={12} />
+              {lang === 'es' ? 'Agregar tarea' : 'Add task'}
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -865,6 +904,192 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
     ).catch(() => {});
   }
 
+  // Funciones para manejar las tareas
+  async function handleCreateTask(objId) {
+    const defaultTitle = lang === 'es' ? 'Nueva tarea' : 'New task';
+    try {
+      const newTask = await createTarea({
+        objId,
+        title: defaultTitle,
+        title_en: defaultTitle,
+        dur: 1,
+        sessions: 1,
+      });
+      setTareas(prev => [...prev, newTask]);
+    } catch (error) {
+      console.error('Error creating task:', error);
+    }
+  }
+
+  async function handleUpdateTask(taskId, data) {
+    setTareas(prev => prev.map(t => t.id === taskId ? { ...t, ...data } : t));
+    try {
+      await updateTarea(taskId, data);
+    } catch (error) {
+      console.error('Error updating task:', error);
+      // Revertir cambios en caso de error
+      setTareas(prev => [...initialTareas]);
+    }
+  }
+
+  async function handleDeleteTask(taskId) {
+    setTareas(prev => prev.filter(t => t.id !== taskId));
+    try {
+      await deleteTarea(taskId);
+    } catch (error) {
+      console.error('Error deleting task:', error);
+      // Revertir cambios en caso de error
+      setTareas(prev => [...initialTareas]);
+    }
+  }
+
+  function handleMoveTaskToEnd(taskId) {
+    setTareas(prev => {
+      const taskIndex = prev.findIndex(t => t.id === taskId);
+      if (taskIndex === -1) return prev;
+      
+      const task = prev[taskIndex];
+      const newTasks = [...prev];
+      newTasks.splice(taskIndex, 1);
+      newTasks.push(task);
+      
+      // Actualizar sortOrder para todas las tareas
+      const updatedTasks = newTasks.map((t, index) => ({
+        ...t,
+        sortOrder: index
+      }));
+      
+      // Actualizar en el servidor
+      reorderTareas(updatedTasks.map(t => ({ id: t.id, sortOrder: t.sortOrder }))).catch(() => {});
+      
+      return updatedTasks;
+    });
+  }
+
+  // Funciones para manejar las tareas
+  async function handleCreateTask(objId) {
+    const defaultTitle = lang === 'es' ? 'Nueva tarea' : 'New task';
+    try {
+      const newTask = await createTarea({
+        objId,
+        title: defaultTitle,
+        title_en: defaultTitle,
+        dur: 1,
+        sessions: 1,
+      });
+      setTareas(prev => [...prev, newTask]);
+    } catch (error) {
+      console.error('Error creating task:', error);
+    }
+  }
+
+  async function handleUpdateTask(taskId, data) {
+    setTareas(prev => prev.map(t => t.id === taskId ? { ...t, ...data } : t));
+    try {
+      await updateTarea(taskId, data);
+    } catch (error) {
+      console.error('Error updating task:', error);
+      // Revertir cambios en caso de error
+      setTareas(prev => [...initialTareas]);
+    }
+  }
+
+  async function handleDeleteTask(taskId) {
+    setTareas(prev => prev.filter(t => t.id !== taskId));
+    try {
+      await deleteTarea(taskId);
+    } catch (error) {
+      console.error('Error deleting task:', error);
+      // Revertir cambios en caso de error
+      setTareas(prev => [...initialTareas]);
+    }
+  }
+
+  function handleMoveTaskToEnd(taskId) {
+    setTareas(prev => {
+      const taskIndex = prev.findIndex(t => t.id === taskId);
+      if (taskIndex === -1) return prev;
+      
+      const task = prev[taskIndex];
+      const newTasks = [...prev];
+      newTasks.splice(taskIndex, 1);
+      newTasks.push(task);
+      
+      // Actualizar sortOrder para todas las tareas
+      const updatedTasks = newTasks.map((t, index) => ({
+        ...t,
+        sortOrder: index
+      }));
+      
+      // Actualizar en el servidor
+      reorderTareas(updatedTasks.map(t => ({ id: t.id, sortOrder: t.sortOrder }))).catch(() => {});
+      
+      return updatedTasks;
+    });
+  }
+
+  // Funciones para manejar las tareas
+  async function handleCreateTask(objId) {
+    const defaultTitle = lang === 'es' ? 'Nueva tarea' : 'New task';
+    try {
+      const newTask = await createTarea({
+        objId,
+        title: defaultTitle,
+        title_en: defaultTitle,
+        dur: 1,
+        sessions: 1,
+      });
+      setTareas(prev => [...prev, newTask]);
+    } catch (error) {
+      console.error('Error creating task:', error);
+    }
+  }
+
+  async function handleUpdateTask(taskId, data) {
+    setTareas(prev => prev.map(t => t.id === taskId ? { ...t, ...data } : t));
+    try {
+      await updateTarea(taskId, data);
+    } catch (error) {
+      console.error('Error updating task:', error);
+      // Revertir cambios en caso de error
+      setTareas(prev => [...initialTareas]);
+    }
+  }
+
+  async function handleDeleteTask(taskId) {
+    setTareas(prev => prev.filter(t => t.id !== taskId));
+    try {
+      await deleteTarea(taskId);
+    } catch (error) {
+      console.error('Error deleting task:', error);
+      // Revertir cambios en caso de error
+      setTareas(prev => [...initialTareas]);
+    }
+  }
+
+  function handleMoveTaskToEnd(taskId) {
+    setTareas(prev => {
+      const taskIndex = prev.findIndex(t => t.id === taskId);
+      if (taskIndex === -1) return prev;
+      
+      const task = prev[taskIndex];
+      const newTasks = [...prev];
+      newTasks.splice(taskIndex, 1);
+      newTasks.push(task);
+      
+      // Actualizar sortOrder para todas las tareas
+      const updatedTasks = newTasks.map((t, index) => ({
+        ...t,
+        sortOrder: index
+      }));
+      
+      // Actualizar en el servidor
+      reorderTareas(updatedTasks.map(t => ({ id: t.id, sortOrder: t.sortOrder }))).catch(() => {});
+      
+      return updatedTasks;
+    });
+  }
+
   async function handleThisWeekToggle(objId) {
     setObjetivos(prev => prev.map(o => o.id === objId ? { ...o, thisWeek: !o.thisWeek } : o));
     try { await toggleObjetivoThisWeek(objId); }
@@ -1149,6 +1374,10 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
                       onDone={handleToggleObjetivoCompleted}
                       onEdit={handleEditObjetivo}
                       onDelete={handleDeleteObjetivo}
+                      onCreateTask={handleCreateTask}
+                      onUpdateTask={handleUpdateTask}
+                      onDeleteTask={handleDeleteTask}
+                      onMoveTaskToEnd={handleMoveTaskToEnd}
                     />
                   ))
                 )}
