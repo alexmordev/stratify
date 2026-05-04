@@ -6,6 +6,7 @@ import './globals.css';
 import Sidebar from '@/components/layout/Sidebar';
 import SearchPalette from '@/components/layout/SearchPalette';
 import ModalReview from '@/components/modals/ModalReview';
+import NewMetaForm from '@/components/modals/NewMetaForm';
 import WizardAgent from '@/components/modals/WizardAgent';
 
 const inter = Inter({
@@ -31,6 +32,7 @@ const fraunces = Fraunces({
 export default function RootLayout({ children }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [metaFormOpen, setMetaFormOpen] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
 
   useEffect(() => {
@@ -48,7 +50,7 @@ export default function RootLayout({ children }) {
     <html lang="es">
       <body className={`${inter.variable} ${ibmPlexMono.variable} ${fraunces.variable}`}>
         <div style={{ display: 'flex', minHeight: '100vh' }}>
-          <Sidebar onSearchOpen={() => setSearchOpen(true)} onReviewOpen={() => setReviewOpen(true)} onNewGoal={() => setWizardOpen(true)} />
+          <Sidebar onSearchOpen={() => setSearchOpen(true)} onReviewOpen={() => setReviewOpen(true)} onNewGoal={() => setMetaFormOpen(true)} />
           <main
             style={{
               marginLeft: 240,
@@ -63,6 +65,12 @@ export default function RootLayout({ children }) {
         </div>
         <SearchPalette open={searchOpen} onClose={() => setSearchOpen(false)} />
         <ModalReview open={reviewOpen} onClose={() => setReviewOpen(false)} />
+        {metaFormOpen && (
+          <NewMetaForm
+            onClose={() => setMetaFormOpen(false)}
+            onUseAgent={() => { setMetaFormOpen(false); setWizardOpen(true); }}
+          />
+        )}
         {wizardOpen && <WizardAgent onClose={() => setWizardOpen(false)} />}
       </body>
     </html>

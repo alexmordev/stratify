@@ -10,11 +10,12 @@ import Switch from '@/components/ui/Switch';
 import Icon from '@/components/ui/Icon';
 import Btn from '@/components/ui/Btn';
 import { t } from '@/lib/i18n';
-import { palById } from '@/lib/palette';
-import { toggleMetaActive } from '@/lib/actions/metas';
-import { createObjetivo, updateObjetivo, deleteObjetivo, toggleObjetivoThisWeek } from '@/lib/actions/objetivos';
+import { PALETTE, palById } from '@/lib/palette';
+import { toggleMetaActive, createMeta, updateMetaColor } from '@/lib/actions/metas';
+import { createObjetivo, updateObjetivo, deleteObjetivo, toggleObjetivoThisWeek, toggleObjetivoCompleted } from '@/lib/actions/objetivos';
 import { toggleTarea, reorderTareas, unscheduleTarea } from '@/lib/actions/tareas';
-import { toggleHitoDone, createHito } from '@/lib/actions/hitos';
+import { toggleHitoDone, createHito, updateHito } from '@/lib/actions/hitos';
+import NewMetaForm from '@/components/modals/NewMetaForm';
 import WizardAgent from '@/components/modals/WizardAgent';
 import GenerateObjetivosModal from '@/components/modals/GenerateObjetivosModal';
 
@@ -102,7 +103,31 @@ function CollapseSection({ open, onToggle, label, count, action, sub, children }
   );
 }
 
+function ColorPicker({ value, onChange }) {
+  return (
+    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+      {PALETTE.map(p => (
+        <button
+          key={p.id}
+          type="button"
+          onClick={() => onChange(p.id)}
+          title={p.id}
+          style={{
+            width: 18, height: 18, borderRadius: '50%', padding: 0,
+            background: p.dot, cursor: 'pointer', flexShrink: 0,
+            border: value === p.id ? '2px solid var(--ink)' : '2px solid transparent',
+            outline: value === p.id ? `2px solid ${p.dot}` : 'none',
+            outlineOffset: 2,
+            transition: 'outline .1s, border .1s',
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 function MetaRow({ meta, isSelected, pct, lang, onSelect }) {
+  const pal = palById(meta.color ?? 'sand');
   const title = lang === 'en' && meta.title_en ? meta.title_en : meta.title;
 
   return (
@@ -114,8 +139,8 @@ function MetaRow({ meta, isSelected, pct, lang, onSelect }) {
         display: 'grid', gridTemplateColumns: '8px 1fr', gap: 10,
         alignItems: 'start', padding: '10px 12px',
         border: 'none', cursor: 'pointer',
-        background: isSelected ? 'var(--panel)' : 'transparent',
-        borderLeft: isSelected ? '2px solid var(--ink)' : '2px solid transparent',
+        background: isSelected ? pal.bg : 'transparent',
+        borderLeft: isSelected ? `2px solid ${pal.dot}` : '2px solid transparent',
         paddingLeft: isSelected ? 10 : 12,
         transition: 'background .12s ease',
       }}
@@ -125,7 +150,7 @@ function MetaRow({ meta, isSelected, pct, lang, onSelect }) {
         style={{
           width: 7, height: 7, borderRadius: '50%', marginTop: 7,
           display: 'block', flexShrink: 0,
-          background: meta.active ? 'oklch(0.62 0.14 145)' : 'var(--ink-4)',
+          background: meta.active ? pal.dot : 'var(--ink-4)',
         }}
       />
       <div style={{ minWidth: 0 }}>
@@ -140,7 +165,7 @@ function MetaRow({ meta, isSelected, pct, lang, onSelect }) {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
           <div style={{ flex: 1 }}>
-            <ProgressBar value={pct} color={meta.active ? 'var(--ink)' : 'var(--ink-4)'} height={2} />
+            <ProgressBar value={pct} color={meta.active ? pal.dot : 'var(--ink-4)'} height={2} />
           </div>
           <span className="mono" style={{ fontSize: 10, color: 'var(--ink-4)' }}>{pct}%</span>
         </div>
@@ -198,13 +223,17 @@ function ObjetivoWeekRow({ objetivo, isSelected, allTareas, lang, onSelect }) {
   );
 }
 
-function ObjectiveCard({ objetivo, allTareas, lang, onTaskToggle, onTaskUnschedule, onReorder, onThisWeekToggle }) {
+function ObjectiveCard({ objetivo, allTareas, lang, onTaskToggle, onTaskUnschedule, onReorder, onThisWeekToggle, onDone, onEdit, onDelete }) {
   const [isOpen, setIsOpen] = useState(true);
   const [sortMode, setSortMode] = useState('order');
   const [dragId, setDragId] = useState(null);
   const [dragOver, setDragOver] = useState(null);
+  const [editing, setEditing] = useState(false);
+  const [editValue, setEditValue] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const pal = palById(objetivo.color);
+  const isDone = Boolean(objetivo.done);
   const tks = allTareas.filter(t => t.objId === objetivo.id);
   const doneTks = tks.filter(t => t.done).length;
   const totalSes = tks.reduce((s, t) => s + (t.sessions ?? 0), 0);
@@ -213,6 +242,22 @@ function ObjectiveCard({ objetivo, allTareas, lang, onTaskToggle, onTaskUnschedu
   const sorted = sortTasks(tks, sortMode);
 
   const title = lang === 'en' && objetivo.title_en ? objetivo.title_en : objetivo.title;
+
+  function startEdit() {
+    setEditValue(title);
+    setEditing(true);
+  }
+
+  function commitEdit() {
+    const trimmed = editValue.trim();
+    if (trimmed && trimmed !== title) onEdit?.(objetivo.id, trimmed);
+    setEditing(false);
+  }
+
+  function handleEditKeyDown(e) {
+    if (e.key === 'Enter') { e.preventDefault(); commitEdit(); }
+    if (e.key === 'Escape') setEditing(false);
+  }
 
   const DAY_LABELS_ES = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
   const DAY_LABELS_EN = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
@@ -244,13 +289,59 @@ function ObjectiveCard({ objetivo, allTareas, lang, onTaskToggle, onTaskUnschedu
       background: 'var(--panel)', border: '1px solid var(--line-2)',
       borderRadius: 10, overflow: 'hidden',
     }}>
-      <div style={{ padding: '12px 14px 10px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 9 }}>
+      <div style={{ padding: '12px 14px 10px', opacity: isDone ? 0.6 : 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9 }}>
           <ColorDot color={pal.dot} size={9} />
-          <div style={{ flex: 1, fontSize: 13.5, fontWeight: 500 }}>{title}</div>
+          {editing ? (
+            <input
+              autoFocus
+              value={editValue}
+              onChange={e => setEditValue(e.target.value)}
+              onKeyDown={handleEditKeyDown}
+              onBlur={commitEdit}
+              style={{
+                flex: 1, fontSize: 13.5, fontWeight: 500,
+                border: 'none', borderBottom: `1px solid ${pal.dot}`,
+                background: 'transparent', outline: 'none', padding: '0 2px',
+                fontFamily: 'inherit', color: 'var(--ink)',
+              }}
+            />
+          ) : (
+            <div style={{
+              flex: 1, fontSize: 13.5, fontWeight: 500,
+              textDecoration: isDone ? 'line-through' : 'none',
+              color: isDone ? 'var(--ink-3)' : 'var(--ink)',
+            }}>
+              {title}
+            </div>
+          )}
+          {!editing && (
+            <button
+              type="button"
+              title={lang === 'es' ? 'Editar' : 'Edit'}
+              onClick={startEdit}
+              style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--ink-4)', padding: 2, display: 'flex', alignItems: 'center' }}
+            >
+              <Icon name="edit" size={12} />
+            </button>
+          )}
           <span className="mono" style={{ fontSize: 11, color: 'var(--ink-3)' }}>
             {doneSes}/{totalSes} {t(lang, 'sessionShort')}
           </span>
+          <button
+            type="button"
+            title={isDone ? (lang === 'es' ? 'Reabrir objetivo' : 'Reopen objective') : (lang === 'es' ? 'Marcar completado' : 'Mark complete')}
+            onClick={() => onDone?.(objetivo.id)}
+            style={{
+              border: isDone ? `1px solid oklch(0.62 0.14 145)` : '1px solid var(--line)',
+              background: isDone ? 'oklch(0.94 0.05 145)' : 'transparent',
+              color: isDone ? 'oklch(0.42 0.12 145)' : 'var(--ink-4)',
+              borderRadius: 6, padding: '3px 5px', cursor: 'pointer',
+              display: 'flex', alignItems: 'center',
+            }}
+          >
+            <Icon name="check" size={13} />
+          </button>
           <button
             type="button"
             title={objetivo.thisWeek ? (lang === 'es' ? 'Quitar de esta semana' : 'Remove from this week') : (lang === 'es' ? 'Trabajar esta semana' : 'Work this week')}
@@ -274,6 +365,36 @@ function ObjectiveCard({ objetivo, allTareas, lang, onTaskToggle, onTaskUnschedu
               <Icon name="chev-d" size={14} />
             </span>
           </button>
+          {confirmDelete ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ fontSize: 10.5, color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>
+                {lang === 'es' ? '¿Eliminar?' : 'Delete?'}
+              </span>
+              <button
+                type="button"
+                onClick={() => { setConfirmDelete(false); onDelete?.(objetivo.id); }}
+                style={{ border: 'none', background: 'oklch(0.6 0.18 25)', color: 'white', borderRadius: 4, padding: '1px 6px', cursor: 'pointer', fontSize: 11 }}
+              >
+                ✓
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(false)}
+                style={{ border: '1px solid var(--line)', background: 'transparent', color: 'var(--ink-3)', borderRadius: 4, padding: '1px 6px', cursor: 'pointer', fontSize: 11 }}
+              >
+                ✗
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              title={lang === 'es' ? 'Eliminar objetivo' : 'Delete objective'}
+              onClick={() => setConfirmDelete(true)}
+              style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--ink-4)', padding: 2, display: 'flex', alignItems: 'center' }}
+            >
+              <Icon name="trash" size={12} />
+            </button>
+          )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ flex: 1 }}>
@@ -420,8 +541,21 @@ function ObjectiveCard({ objetivo, allTareas, lang, onTaskToggle, onTaskUnschedu
   );
 }
 
-function HitoRow({ hito, last, lang, onToggle, onGenerate }) {
+function toDateInputValue(isoOrDate) {
+  if (!isoOrDate) return '';
+  const d = new Date(isoOrDate);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function HitoRow({ hito, last, lang, onToggle, onEdit, onGenerate }) {
   const [confirming, setConfirming] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDate, setEditDate] = useState('');
+
   const hasObjetivos = (hito._count?.objetivos ?? 0) > 0;
   const d = hito.fecha_objetivo ? new Date(hito.fecha_objetivo) : null;
   const today = new Date(); today.setHours(0,0,0,0);
@@ -446,18 +580,45 @@ function HitoRow({ hito, last, lang, onToggle, onGenerate }) {
     : overdue ? 'oklch(0.6 0.18 25)'
     : 'var(--ink-4)';
 
+  function startEdit() {
+    setEditTitle(hito.enunciado);
+    setEditDate(toDateInputValue(hito.fecha_objetivo));
+    setEditing(true);
+  }
+
+  function commitEdit() {
+    const title = editTitle.trim();
+    if (title) {
+      const data = { enunciado: title };
+      if (editDate) data.fecha_objetivo = new Date(editDate + 'T12:00:00');
+      else data.fecha_objetivo = null;
+      onEdit?.(hito.id, data);
+    }
+    setEditing(false);
+  }
+
+  function handleKeyDown(e) {
+    if (e.key === 'Enter') { e.preventDefault(); commitEdit(); }
+    if (e.key === 'Escape') setEditing(false);
+  }
+
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr', gap: 12, position: 'relative' }}>
       <div style={{ position: 'relative', display: 'flex', justifyContent: 'center' }}>
-        <span style={{
-          width: 14, height: 14, borderRadius: '50%',
-          border: `2px solid ${dotColor}`,
-          background: done ? 'oklch(0.62 0.14 145)' : 'var(--panel)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: 'white', marginTop: 4, zIndex: 1, flexShrink: 0,
-        }}>
+        <button
+          type="button"
+          onClick={() => onToggle && onToggle(hito.id)}
+          title={done ? (lang === 'es' ? 'Marcar pendiente' : 'Mark pending') : (lang === 'es' ? 'Marcar logrado' : 'Mark achieved')}
+          style={{
+            width: 14, height: 14, borderRadius: '50%', border: 'none', padding: 0,
+            outline: `2px solid ${dotColor}`, outlineOffset: 0,
+            background: done ? 'oklch(0.62 0.14 145)' : 'var(--panel)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: 'white', marginTop: 4, zIndex: 1, flexShrink: 0, cursor: 'pointer',
+          }}
+        >
           {done && <Icon name="check" size={8} />}
-        </span>
+        </button>
         {!last && (
           <span style={{
             position: 'absolute', top: 18, bottom: -16,
@@ -466,80 +627,134 @@ function HitoRow({ hito, last, lang, onToggle, onGenerate }) {
           }} />
         )}
       </div>
-      <div style={{
-        padding: '4px 14px 18px 0',
-        display: 'grid', gridTemplateColumns: '1fr auto auto auto',
-        gap: 14, alignItems: 'center',
-      }}>
-        <button
-          type="button"
-          onClick={() => onToggle && onToggle(hito.id)}
-          style={{
-            border: 'none', background: 'transparent', cursor: 'pointer',
-            fontSize: 13.5, fontWeight: 450, textAlign: 'left', padding: 0,
-            color: done ? 'var(--ink-3)' : 'var(--ink)',
-            textDecoration: done ? 'line-through' : 'none',
-            lineHeight: 1.4,
-          }}
-        >
-          {hito.enunciado}
-        </button>
-        <span className="mono" style={{ fontSize: 11, color: 'var(--ink-3)' }}>{labelDate}</span>
-        <span className="mono" style={{
-          fontSize: 10.5, padding: '2px 8px', borderRadius: 999,
-          background: done    ? 'oklch(0.94 0.05 145)'
-                    : overdue ? 'oklch(0.94 0.06 25)'
-                    :           'var(--bg-2)',
-          color:      done    ? 'oklch(0.4 0.12 145)'
-                    : overdue ? 'oklch(0.45 0.14 25)'
-                    :           'var(--ink-3)',
-          minWidth: 64, textAlign: 'center',
-        }}>
-          {relative}
-        </span>
-        {!confirming ? (
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); setConfirming(true); }}
-            title={lang === 'es' ? 'Generar objetivos' : 'Generate objectives'}
-            style={{
-              border: `1px solid ${hasObjetivos ? 'oklch(0.62 0.14 145)' : 'var(--line)'}`,
-              background: hasObjetivos ? 'oklch(0.96 0.04 145)' : 'transparent',
-              borderRadius: 5, padding: '2px 5px', cursor: 'pointer',
-              fontSize: 11,
-              color: hasObjetivos ? 'oklch(0.42 0.12 145)' : 'var(--ink-3)',
-              lineHeight: 1,
-            }}
-          >
-            ⚡
-          </button>
+
+      <div style={{ padding: '2px 14px 18px 0' }}>
+        {editing ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <input
+              autoFocus
+              value={editTitle}
+              onChange={e => setEditTitle(e.target.value)}
+              onKeyDown={handleKeyDown}
+              style={{
+                fontSize: 13.5, fontWeight: 450, width: '100%',
+                border: 'none', borderBottom: '1px solid var(--ink-3)',
+                background: 'transparent', outline: 'none',
+                fontFamily: 'inherit', color: 'var(--ink)', padding: '2px 0',
+              }}
+            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span className="mono" style={{ fontSize: 10.5, color: 'var(--ink-3)' }}>
+                {lang === 'es' ? 'Fecha objetivo:' : 'Target date:'}
+              </span>
+              <input
+                type="date"
+                value={editDate}
+                onChange={e => setEditDate(e.target.value)}
+                style={{
+                  fontSize: 11.5, fontFamily: 'inherit',
+                  border: '1px solid var(--line)', borderRadius: 5,
+                  padding: '2px 6px', background: 'var(--bg-2)', color: 'var(--ink)',
+                }}
+              />
+              <button
+                type="button"
+                onMouseDown={e => { e.preventDefault(); commitEdit(); }}
+                style={{
+                  border: 'none', background: 'oklch(0.62 0.14 145)',
+                  color: 'white', borderRadius: 5, padding: '2px 8px',
+                  fontSize: 11, cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                {lang === 'es' ? 'Guardar' : 'Save'}
+              </button>
+              <button
+                type="button"
+                onMouseDown={e => { e.preventDefault(); setEditing(false); }}
+                style={{
+                  border: '1px solid var(--line)', background: 'transparent',
+                  color: 'var(--ink-3)', borderRadius: 5, padding: '2px 8px',
+                  fontSize: 11, cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                {lang === 'es' ? 'Cancelar' : 'Cancel'}
+              </button>
+            </div>
+          </div>
         ) : (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ fontSize: 10.5, color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>
-              {lang === 'es' ? '¿Generar?' : 'Generate?'}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto auto', gap: 14, alignItems: 'center' }}>
+            <button
+              type="button"
+              onClick={startEdit}
+              title={lang === 'es' ? 'Editar hito' : 'Edit milestone'}
+              style={{
+                border: 'none', background: 'transparent', cursor: 'pointer',
+                fontSize: 13.5, fontWeight: 450, textAlign: 'left', padding: 0,
+                color: done ? 'var(--ink-3)' : 'var(--ink)',
+                textDecoration: done ? 'line-through' : 'none',
+                lineHeight: 1.4,
+              }}
+            >
+              {hito.enunciado}
+            </button>
+            <span className="mono" style={{ fontSize: 11, color: 'var(--ink-3)' }}>{labelDate}</span>
+            <span className="mono" style={{
+              fontSize: 10.5, padding: '2px 8px', borderRadius: 999,
+              background: done    ? 'oklch(0.94 0.05 145)'
+                        : overdue ? 'oklch(0.94 0.06 25)'
+                        :           'var(--bg-2)',
+              color:      done    ? 'oklch(0.4 0.12 145)'
+                        : overdue ? 'oklch(0.45 0.14 25)'
+                        :           'var(--ink-3)',
+              minWidth: 64, textAlign: 'center',
+            }}>
+              {relative}
             </span>
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); setConfirming(false); onGenerate?.(hito); }}
-              style={{
-                border: 'none', background: 'oklch(0.62 0.14 145)',
-                color: 'white', borderRadius: 4,
-                padding: '1px 6px', cursor: 'pointer', fontSize: 11,
-              }}
-            >
-              ✓
-            </button>
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); setConfirming(false); }}
-              style={{
-                border: '1px solid var(--line)', background: 'transparent',
-                color: 'var(--ink-3)', borderRadius: 4,
-                padding: '1px 6px', cursor: 'pointer', fontSize: 11,
-              }}
-            >
-              ✗
-            </button>
+            {!confirming ? (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setConfirming(true); }}
+                title={lang === 'es' ? 'Generar objetivos' : 'Generate objectives'}
+                style={{
+                  border: `1px solid ${hasObjetivos ? 'oklch(0.62 0.14 145)' : 'var(--line)'}`,
+                  background: hasObjetivos ? 'oklch(0.96 0.04 145)' : 'transparent',
+                  borderRadius: 5, padding: '2px 5px', cursor: 'pointer',
+                  fontSize: 11,
+                  color: hasObjetivos ? 'oklch(0.42 0.12 145)' : 'var(--ink-3)',
+                  lineHeight: 1,
+                }}
+              >
+                ⚡
+              </button>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ fontSize: 10.5, color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>
+                  {lang === 'es' ? '¿Generar?' : 'Generate?'}
+                </span>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setConfirming(false); onGenerate?.(hito); }}
+                  style={{
+                    border: 'none', background: 'oklch(0.62 0.14 145)',
+                    color: 'white', borderRadius: 4,
+                    padding: '1px 6px', cursor: 'pointer', fontSize: 11,
+                  }}
+                >
+                  ✓
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setConfirming(false); }}
+                  style={{
+                    border: '1px solid var(--line)', background: 'transparent',
+                    color: 'var(--ink-3)', borderRadius: 4,
+                    padding: '1px 6px', cursor: 'pointer', fontSize: 11,
+                  }}
+                >
+                  ✗
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -553,6 +768,7 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
   const [metas, setMetas] = useState(initialMetas);
   const [objetivos, setObjetivos] = useState(initialObjetivos);
   const [tareas, setTareas] = useState(initialTareas);
+  const [metaFormOpen, setMetaFormOpen] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [generateModal, setGenerateModal] = useState(null);
 
@@ -584,14 +800,30 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
   const doneSessions = metaTareas.filter(t => t.done).reduce((s, t) => s + (t.sessions ?? 0), 0);
   const metaHitos = selectedMeta ? (selectedMeta.hitos ?? []) : [];
   const hitosDone = metaHitos.filter(h => h.done ?? false).length;
-  const metaPct = metaTareas.length
-    ? Math.round((metaDone / metaTareas.length) * 100)
+  const metaPct = metaHitos.length
+    ? Math.round((hitosDone / metaHitos.length) * 100)
     : 0;
 
   function calcMetaPct(meta) {
-    const objs = objetivos.filter(o => o.metaId === meta.id);
-    const tks = tareas.filter(t => objs.some(o => o.id === t.objId));
-    return tks.length ? Math.round((tks.filter(t => t.done).length / tks.length) * 100) : 0;
+    const hitos = meta.hitos ?? [];
+    if (hitos.length === 0) return 0;
+    return Math.round((hitos.filter(h => h.done).length / hitos.length) * 100);
+  }
+
+  function handleCreateMeta(newMeta) {
+    setMetas(prev => [{ ...newMeta, hitos: [], objetivos: [] }, ...prev]);
+    setSelectedId(newMeta.id);
+  }
+
+  async function handleUpdateMetaColor(metaId, color) {
+    setMetas(prev => prev.map(m => m.id === metaId ? { ...m, color } : m));
+    setObjetivos(prev => prev.map(o => o.metaId === metaId ? { ...o, color } : o));
+    try { await updateMetaColor(metaId, color); } catch { /* server revalidates */ }
+  }
+
+  async function handleDeleteObjetivo(objId) {
+    setObjetivos(prev => prev.filter(o => o.id !== objId));
+    try { await deleteObjetivo(objId); } catch { /* server revalidates */ }
   }
 
   async function handleToggleActive(id) {
@@ -639,6 +871,17 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
     catch { setObjetivos(prev => prev.map(o => o.id === objId ? { ...o, thisWeek: !o.thisWeek } : o)); }
   }
 
+  async function handleToggleObjetivoCompleted(objId) {
+    setObjetivos(prev => prev.map(o => o.id === objId ? { ...o, done: o.done ? 0 : 1 } : o));
+    try { await toggleObjetivoCompleted(objId); }
+    catch { setObjetivos(prev => prev.map(o => o.id === objId ? { ...o, done: o.done ? 0 : 1 } : o)); }
+  }
+
+  async function handleEditObjetivo(objId, title) {
+    setObjetivos(prev => prev.map(o => o.id === objId ? { ...o, title } : o));
+    try { await updateObjetivo(objId, { title }); } catch { /* server revalidates */ }
+  }
+
   async function handleToggleHito(hitoId) {
     setMetas(prev => prev.map(m => ({
       ...m,
@@ -647,6 +890,14 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
       ),
     })));
     try { await toggleHitoDone(hitoId); } catch { /* revert would need refetch */ }
+  }
+
+  async function handleUpdateHito(hitoId, data) {
+    setMetas(prev => prev.map(m => ({
+      ...m,
+      hitos: (m.hitos ?? []).map(h => h.id === hitoId ? { ...h, ...data } : h),
+    })));
+    try { await updateHito(hitoId, data); } catch { /* server revalidates */ }
   }
 
   function handleGenerateObjetivos(hito) {
@@ -694,7 +945,7 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
             </h2>
             <button
               type="button"
-              onClick={() => setWizardOpen(true)}
+              onClick={() => setMetaFormOpen(true)}
               title={t(lang, 'newMeta')}
               style={{
                 border: '1px solid var(--line)', background: 'white', borderRadius: 7,
@@ -786,6 +1037,12 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
                 }}>
                   {lang === 'en' && selectedMeta.title_en ? selectedMeta.title_en : selectedMeta.title}
                 </h1>
+                <div style={{ marginTop: 12 }}>
+                  <ColorPicker
+                    value={selectedMeta.color ?? 'sand'}
+                    onChange={color => handleUpdateMetaColor(selectedMeta.id, color)}
+                  />
+                </div>
                 <p style={{ fontSize: 14, lineHeight: 1.6, margin: '14px 0 0', maxWidth: 580, color: 'var(--ink-2)' }}>
                   {lang === 'en' && selectedMeta.why_en ? selectedMeta.why_en : selectedMeta.why}
                 </p>
@@ -815,7 +1072,7 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
                 </div>
                 <Donut
                   value={metaPct} size={88} stroke={6}
-                  color={selectedMeta.active ? 'var(--ink)' : 'var(--ink-4)'}
+                  color={selectedMeta.active ? palById(selectedMeta.color ?? 'sand').dot : 'var(--ink-4)'}
                   label={`${metaPct}%`}
                 />
               </div>
@@ -853,12 +1110,14 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
                   onClick={async (e) => {
                     e.stopPropagation();
                     try {
-                      await createObjetivo({
+                      const defaultTitle = lang === 'es' ? 'Nuevo objetivo' : 'New objective';
+                      const newObj = await createObjetivo({
                         metaId: selectedMeta.id,
-                        title: lang === 'es' ? 'Nuevo objetivo' : 'New objective',
-                        title_en: 'New objective',
+                        title: defaultTitle,
+                        title_en: defaultTitle,
                         color: 'sand', weeklyLoad: 1, done: 0,
                       });
+                      setObjetivos(prev => [...prev, { ...newObj, tareas: [] }]);
                     } catch { /* ignore */ }
                   }}
                   style={{
@@ -887,6 +1146,9 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
                       onTaskUnschedule={handleUnschedule}
                       onReorder={handleReorder}
                       onThisWeekToggle={handleThisWeekToggle}
+                      onDone={handleToggleObjetivoCompleted}
+                      onEdit={handleEditObjetivo}
+                      onDelete={handleDeleteObjetivo}
                     />
                   ))
                 )}
@@ -933,6 +1195,7 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
                         last={i === arr.length - 1}
                         lang={lang}
                         onToggle={handleToggleHito}
+                        onEdit={handleUpdateHito}
                         onGenerate={handleGenerateObjetivos}
                       />
                     ))
@@ -942,6 +1205,15 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
           </div>
         )}
       </div>
+
+      {metaFormOpen && (
+        <NewMetaForm
+          lang={lang}
+          onClose={() => setMetaFormOpen(false)}
+          onCreated={handleCreateMeta}
+          onUseAgent={() => setWizardOpen(true)}
+        />
+      )}
 
       {wizardOpen && (
         <WizardAgent onClose={() => setWizardOpen(false)} />

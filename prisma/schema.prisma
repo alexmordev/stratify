@@ -21,6 +21,7 @@ model Meta {
   obstaculo_interno String?    @db.Text
   plan_respuesta    String?    @db.Text
   fecha_logro       DateTime?
+  color             String     @default("sand")
   active            Boolean    @default(true)
   createdAt         DateTime   @default(now())
   hitos             Hito[]
