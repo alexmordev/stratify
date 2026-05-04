@@ -12,6 +12,10 @@ export default function NewTaskForm({ lang, onSave, onCancel }) {
     }
   };
 
+  const handleKeyDown = (e) => {
+    if (e.key === 'Escape') onCancel();
+  };
+
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 10,
@@ -22,6 +26,7 @@ export default function NewTaskForm({ lang, onSave, onCancel }) {
           autoFocus
           value={title}
           onChange={(e) => setTitle(e.target.value)}
+          onKeyDown={handleKeyDown}
           placeholder={lang === 'es' ? 'Nueva tarea...' : 'New task...'}
           style={{
             flex: 1, fontSize: 12.5,

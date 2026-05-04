@@ -1,66 +1,34 @@
 import { useState } from 'react';
 import Check from '@/components/ui/Check';
 import Icon from '@/components/ui/Icon';
-import { updateTarea, deleteTarea } from '@/lib/actions/tareas';
 
-export default function TaskItem({ task, lang, onToggle, onDelete, onUpdate, onMoveToEnd }) {
+export default function TaskItem({ task, lang, onToggle, onDelete, onUpdate }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  const handleEdit = () => {
+  function handleEdit() {
     setIsEditing(true);
     setEditTitle(task.title);
-  };
+  }
 
-  const handleSave = async () => {
-    const trimmedTitle = editTitle.trim();
-    if (trimmedTitle && trimmedTitle !== task.title) {
-      try {
-        await updateTarea(task.id, { title: trimmedTitle });
-        onUpdate(task.id, { title: trimmedTitle });
-      } catch (error) {
-        console.error('Error updating task:', error);
-      }
+  function handleSave() {
+    const trimmed = editTitle.trim();
+    if (trimmed && trimmed !== task.title) {
+      onUpdate(task.id, { title: trimmed });
     }
     setIsEditing(false);
-  };
+  }
 
-  const handleCancel = () => {
+  function handleCancel() {
     setIsEditing(false);
     setEditTitle(task.title);
-  };
+  }
 
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleSave();
-    }
-    if (e.key === 'Escape') {
-      handleCancel();
-    }
-  };
-
-  const handleDelete = async () => {
-    try {
-      await deleteTarea(task.id);
-      onDelete(task.id);
-    } catch (error) {
-      console.error('Error deleting task:', error);
-    }
-  };
-
-  const handleToggle = async () => {
-    try {
-      await onToggle(task.id);
-      // Mover la tarea al final si se marca como completada
-      if (!task.done) {
-        onMoveToEnd(task.id);
-      }
-    } catch (error) {
-      console.error('Error toggling task:', error);
-    }
-  };
+  function handleKeyDown(e) {
+    if (e.key === 'Enter') { e.preventDefault(); handleSave(); }
+    if (e.key === 'Escape') handleCancel();
+  }
 
   return (
     <div
@@ -75,10 +43,10 @@ export default function TaskItem({ task, lang, onToggle, onDelete, onUpdate, onM
     >
       <Check
         checked={task.done}
-        onChange={handleToggle}
+        onChange={() => onToggle(task.id)}
         size={16}
       />
-      
+
       {isEditing ? (
         <input
           autoFocus
@@ -111,7 +79,7 @@ export default function TaskItem({ task, lang, onToggle, onDelete, onUpdate, onM
           {task.title}
         </div>
       )}
-      
+
       {!isEditing && (
         <div style={{ display: 'flex', gap: 4 }}>
           <button
@@ -130,7 +98,7 @@ export default function TaskItem({ task, lang, onToggle, onDelete, onUpdate, onM
           >
             <Icon name="edit" size={12} />
           </button>
-          
+
           {showDeleteConfirm ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <span style={{ fontSize: 10.5, color: 'var(--ink-3)' }}>
@@ -138,7 +106,7 @@ export default function TaskItem({ task, lang, onToggle, onDelete, onUpdate, onM
               </span>
               <button
                 type="button"
-                onClick={handleDelete}
+                onClick={() => { setShowDeleteConfirm(false); onDelete(task.id); }}
                 style={{
                   border: 'none',
                   background: 'oklch(0.6 0.18 25)',

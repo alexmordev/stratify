@@ -63,13 +63,16 @@ function fmtDue(iso, lang) {
 
 function sortTasks(arr, mode) {
   const a = [...arr];
+  const doneLast = (x, y) => (x.done ? 1 : 0) - (y.done ? 1 : 0);
   if (mode === 'due') a.sort((x, y) => {
+    const dd = doneLast(x, y);
+    if (dd !== 0) return dd;
     const xd = x.dueDate ? new Date(x.dueDate).getTime() : Infinity;
     const yd = y.dueDate ? new Date(y.dueDate).getTime() : Infinity;
     return xd - yd;
   });
-  else if (mode === 'load') a.sort((x, y) => (y.sessions ?? 0) - (x.sessions ?? 0));
-  else a.sort((x, y) => (x.sortOrder ?? 0) - (y.sortOrder ?? 0));
+  else if (mode === 'load') a.sort((x, y) => doneLast(x, y) || (y.sessions ?? 0) - (x.sessions ?? 0));
+  else a.sort((x, y) => doneLast(x, y) || (x.sortOrder ?? 0) - (y.sortOrder ?? 0));
   return a;
 }
 
@@ -225,7 +228,7 @@ function ObjetivoWeekRow({ objetivo, isSelected, allTareas, lang, onSelect }) {
   );
 }
 
-function ObjectiveCard({ objetivo, allTareas, lang, onTaskToggle, onTaskUnschedule, onReorder, onThisWeekToggle, onDone, onEdit, onDelete, onCreateTask, onUpdateTask, onDeleteTask, onMoveTaskToEnd }) {
+function ObjectiveCard({ objetivo, allTareas, lang, onTaskToggle, onTaskUnschedule, onReorder, onThisWeekToggle, onDone, onEdit, onDelete, onCreateTask, onUpdateTask, onDeleteTask }) {
   const [isOpen, setIsOpen] = useState(true);
   const [sortMode, setSortMode] = useState('order');
   const [dragId, setDragId] = useState(null);
@@ -234,27 +237,19 @@ function ObjectiveCard({ objetivo, allTareas, lang, onTaskToggle, onTaskUnschedu
   const [editValue, setEditValue] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [newTaskObjId, setNewTaskObjId] = useState(null);
-  
+
   function startCreateTask(objId) {
     setNewTaskObjId(objId);
   }
-  
+
   function cancelCreateTask() {
     setNewTaskObjId(null);
   }
-  
+
   async function saveNewTask(title) {
     if (!newTaskObjId) return;
-    
     try {
-      const newTask = await createTarea({
-        objId: newTaskObjId,
-        title: title,
-        title_en: title,
-        dur: 1,
-        sessions: 1,
-      });
-      setTareas(prev => [...prev, newTask]);
+      await onCreateTask(newTaskObjId, title);
       setNewTaskObjId(null);
     } catch (error) {
       console.error('Error creating task:', error);
@@ -489,7 +484,6 @@ function ObjectiveCard({ objetivo, allTareas, lang, onTaskToggle, onTaskUnschedu
                   onToggle={onTaskToggle}
                   onDelete={onDeleteTask}
                   onUpdate={onUpdateTask}
-                  onMoveToEnd={onMoveTaskToEnd}
                 />
               </div>
             );
@@ -534,46 +528,6 @@ function ObjectiveCard({ objetivo, allTareas, lang, onTaskToggle, onTaskUnschedu
               </button>
             </div>
           )}
-        </div>
-      )}
-          
-          {/* Botón para agregar nueva tarea */}
-          <div style={{ padding: '8px 14px' }}>
-            <button
-              type="button"
-              onClick={() => handleCreateTask(objetivo.id)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                border: '1px dashed var(--line)', background: 'transparent',
-                borderRadius: 6, padding: '6px 10px', cursor: 'pointer',
-                color: 'var(--ink-3)', fontSize: 12,
-                width: '100%', justifyContent: 'center',
-              }}
-            >
-              <Icon name="plus" size={12} />
-              {lang === 'es' ? 'Agregar tarea' : 'Add task'}
-            </button>
-          </div>
-        </div>
-      )}
-          
-          {/* Botón para agregar nueva tarea */}
-          <div style={{ padding: '8px 14px' }}>
-            <button
-              type="button"
-              onClick={() => handleCreateTask(objetivo.id)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                border: '1px dashed var(--line)', background: 'transparent',
-                borderRadius: 6, padding: '6px 10px', cursor: 'pointer',
-                color: 'var(--ink-3)', fontSize: 12,
-                width: '100%', justifyContent: 'center',
-              }}
-            >
-              <Icon name="plus" size={12} />
-              {lang === 'es' ? 'Agregar tarea' : 'Add task'}
-            </button>
-          </div>
         </div>
       )}
     </div>
@@ -904,9 +858,8 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
     ).catch(() => {});
   }
 
-  // Funciones para manejar las tareas
-  async function handleCreateTask(objId) {
-    const defaultTitle = lang === 'es' ? 'Nueva tarea' : 'New task';
+  async function handleCreateTask(objId, title) {
+    const defaultTitle = title ?? (lang === 'es' ? 'Nueva tarea' : 'New task');
     try {
       const newTask = await createTarea({
         objId,
@@ -925,9 +878,7 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
     setTareas(prev => prev.map(t => t.id === taskId ? { ...t, ...data } : t));
     try {
       await updateTarea(taskId, data);
-    } catch (error) {
-      console.error('Error updating task:', error);
-      // Revertir cambios en caso de error
+    } catch {
       setTareas(prev => [...initialTareas]);
     }
   }
@@ -936,158 +887,9 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
     setTareas(prev => prev.filter(t => t.id !== taskId));
     try {
       await deleteTarea(taskId);
-    } catch (error) {
-      console.error('Error deleting task:', error);
-      // Revertir cambios en caso de error
+    } catch {
       setTareas(prev => [...initialTareas]);
     }
-  }
-
-  function handleMoveTaskToEnd(taskId) {
-    setTareas(prev => {
-      const taskIndex = prev.findIndex(t => t.id === taskId);
-      if (taskIndex === -1) return prev;
-      
-      const task = prev[taskIndex];
-      const newTasks = [...prev];
-      newTasks.splice(taskIndex, 1);
-      newTasks.push(task);
-      
-      // Actualizar sortOrder para todas las tareas
-      const updatedTasks = newTasks.map((t, index) => ({
-        ...t,
-        sortOrder: index
-      }));
-      
-      // Actualizar en el servidor
-      reorderTareas(updatedTasks.map(t => ({ id: t.id, sortOrder: t.sortOrder }))).catch(() => {});
-      
-      return updatedTasks;
-    });
-  }
-
-  // Funciones para manejar las tareas
-  async function handleCreateTask(objId) {
-    const defaultTitle = lang === 'es' ? 'Nueva tarea' : 'New task';
-    try {
-      const newTask = await createTarea({
-        objId,
-        title: defaultTitle,
-        title_en: defaultTitle,
-        dur: 1,
-        sessions: 1,
-      });
-      setTareas(prev => [...prev, newTask]);
-    } catch (error) {
-      console.error('Error creating task:', error);
-    }
-  }
-
-  async function handleUpdateTask(taskId, data) {
-    setTareas(prev => prev.map(t => t.id === taskId ? { ...t, ...data } : t));
-    try {
-      await updateTarea(taskId, data);
-    } catch (error) {
-      console.error('Error updating task:', error);
-      // Revertir cambios en caso de error
-      setTareas(prev => [...initialTareas]);
-    }
-  }
-
-  async function handleDeleteTask(taskId) {
-    setTareas(prev => prev.filter(t => t.id !== taskId));
-    try {
-      await deleteTarea(taskId);
-    } catch (error) {
-      console.error('Error deleting task:', error);
-      // Revertir cambios en caso de error
-      setTareas(prev => [...initialTareas]);
-    }
-  }
-
-  function handleMoveTaskToEnd(taskId) {
-    setTareas(prev => {
-      const taskIndex = prev.findIndex(t => t.id === taskId);
-      if (taskIndex === -1) return prev;
-      
-      const task = prev[taskIndex];
-      const newTasks = [...prev];
-      newTasks.splice(taskIndex, 1);
-      newTasks.push(task);
-      
-      // Actualizar sortOrder para todas las tareas
-      const updatedTasks = newTasks.map((t, index) => ({
-        ...t,
-        sortOrder: index
-      }));
-      
-      // Actualizar en el servidor
-      reorderTareas(updatedTasks.map(t => ({ id: t.id, sortOrder: t.sortOrder }))).catch(() => {});
-      
-      return updatedTasks;
-    });
-  }
-
-  // Funciones para manejar las tareas
-  async function handleCreateTask(objId) {
-    const defaultTitle = lang === 'es' ? 'Nueva tarea' : 'New task';
-    try {
-      const newTask = await createTarea({
-        objId,
-        title: defaultTitle,
-        title_en: defaultTitle,
-        dur: 1,
-        sessions: 1,
-      });
-      setTareas(prev => [...prev, newTask]);
-    } catch (error) {
-      console.error('Error creating task:', error);
-    }
-  }
-
-  async function handleUpdateTask(taskId, data) {
-    setTareas(prev => prev.map(t => t.id === taskId ? { ...t, ...data } : t));
-    try {
-      await updateTarea(taskId, data);
-    } catch (error) {
-      console.error('Error updating task:', error);
-      // Revertir cambios en caso de error
-      setTareas(prev => [...initialTareas]);
-    }
-  }
-
-  async function handleDeleteTask(taskId) {
-    setTareas(prev => prev.filter(t => t.id !== taskId));
-    try {
-      await deleteTarea(taskId);
-    } catch (error) {
-      console.error('Error deleting task:', error);
-      // Revertir cambios en caso de error
-      setTareas(prev => [...initialTareas]);
-    }
-  }
-
-  function handleMoveTaskToEnd(taskId) {
-    setTareas(prev => {
-      const taskIndex = prev.findIndex(t => t.id === taskId);
-      if (taskIndex === -1) return prev;
-      
-      const task = prev[taskIndex];
-      const newTasks = [...prev];
-      newTasks.splice(taskIndex, 1);
-      newTasks.push(task);
-      
-      // Actualizar sortOrder para todas las tareas
-      const updatedTasks = newTasks.map((t, index) => ({
-        ...t,
-        sortOrder: index
-      }));
-      
-      // Actualizar en el servidor
-      reorderTareas(updatedTasks.map(t => ({ id: t.id, sortOrder: t.sortOrder }))).catch(() => {});
-      
-      return updatedTasks;
-    });
   }
 
   async function handleThisWeekToggle(objId) {
@@ -1377,7 +1179,6 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
                       onCreateTask={handleCreateTask}
                       onUpdateTask={handleUpdateTask}
                       onDeleteTask={handleDeleteTask}
-                      onMoveTaskToEnd={handleMoveTaskToEnd}
                     />
                   ))
                 )}
