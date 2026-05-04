@@ -484,6 +484,12 @@ function ObjectiveCard({ objetivo, allTareas, lang, onTaskToggle, onTaskUnschedu
                   onToggle={onTaskToggle}
                   onDelete={onDeleteTask}
                   onUpdate={onUpdateTask}
+                  onUnschedule={onTaskUnschedule}
+                  isDraggable={sortMode === 'order'}
+                  isDragging={isDragging}
+                  onDragStart={(e) => handleDragStart(e, task.id)}
+                  onDragEnd={handleDragEnd}
+                  accentColor={pal.dot}
                 />
               </div>
             );
