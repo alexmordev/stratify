@@ -359,7 +359,7 @@ function DayColumn({
     if (e.target.closest('[data-testid^="task-card-"]')) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const relY = e.clientY - rect.top;
-    const start = HOUR_START + Math.floor((relY / SLOT_H) * 2) / 2;
+    const start = Math.floor((HOUR_START + (e.clientY - rect.top) / SLOT_H) * 2) / 2;
     onSlotClick(dayIndex, start, { x: e.clientX, y: e.clientY });
   }
 
@@ -367,8 +367,9 @@ function DayColumn({
     e.preventDefault();
     const rect = e.currentTarget.getBoundingClientRect();
     const relY = Math.max(0, e.clientY - rect.top);
-    const hour = Math.max(HOUR_START, Math.min(HOUR_END, HOUR_START + Math.floor(relY / SLOT_H)));
-    setDropHint({ day: dayIndex, hour });
+    const hour = HOUR_START + relY / SLOT_H;
+    const snappedHour = Math.floor(hour * 2) / 2; // Round down to nearest 0.5
+    setDropHint({ day: dayIndex, hour: snappedHour });
   }
 
   function handleTimeGridDragLeave(e) {
@@ -381,8 +382,8 @@ function DayColumn({
     e.preventDefault();
     const rect = e.currentTarget.getBoundingClientRect();
     const relY = Math.max(0, e.clientY - rect.top);
-    const hour = Math.max(HOUR_START, Math.min(HOUR_END, HOUR_START + Math.floor(relY / SLOT_H)));
-    const snapped = Math.round(hour * 2) / 2;
+    const hour = HOUR_START + relY / SLOT_H;
+    const snapped = Math.floor(hour * 2) / 2; // Round down to nearest 0.5
     onDrop(dayIndex, snapped);
     setDropHint(null);
   }
@@ -440,7 +441,7 @@ function DayColumn({
               top: (dropHint.hour - HOUR_START) * SLOT_H,
               left: 4,
               right: 4,
-              height: (draggingDur || 1) * SLOT_H,
+              height: Math.max((draggingDur || 1) * SLOT_H, 22), // Ensure minimum height of 22px
               background: 'oklch(0.95 0.05 250 / 0.5)',
               border: '2px dashed oklch(0.8 0.1 250)',
               pointerEvents: 'none',
