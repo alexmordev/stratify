@@ -303,7 +303,7 @@ function BacklogCard({ tarea, lang, onDragStart, onDragEnd }) {
         onDragEnd();
       }}
       style={{
-        background: 'white',
+        background: 'var(--panel)',
         border: '1px solid var(--line-2)',
         borderLeft: `3px solid ${pal.dot}`,
         borderRadius: 8,
@@ -415,9 +415,10 @@ function DayColumn({
           padding: '6px 8px',
           textAlign: 'center',
           borderBottom: '1px solid var(--line-2)',
-          background: isToday ? 'var(--ink)' : 'var(--panel)',
+          background: isToday ? 'var(--accent)' : 'var(--panel)',
           color: isToday ? 'white' : 'var(--ink-3)',
           borderRadius: isToday ? '6px 6px 0 0' : 0,
+          boxShadow: isToday ? '0 4px 12px var(--accent-glow)' : 'none',
         }}
       >
         <div className="mono" style={{ fontSize: 10, fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
@@ -1247,24 +1248,24 @@ export default function ViewTareas({ tareas: initialTareas, objetivos, metas = [
                 <div style={{ width: 1, height: 18, background: 'var(--line)' }} />
                 <button
                   onClick={goToday}
-                  style={{ border: '1px solid var(--line)', background: 'white', borderRadius: 7, padding: '5px 10px', fontSize: 12, cursor: 'pointer', color: 'var(--ink-2)', fontFamily: 'inherit' }}
+                  style={{ border: '1px solid var(--line)', background: 'var(--panel)', borderRadius: 7, padding: '5px 10px', fontSize: 12, cursor: 'pointer', color: 'var(--ink-2)', fontFamily: 'inherit' }}
                 >
                   {t(lang, 'today')}
                 </button>
                 <div style={{ display: 'flex', gap: 0 }}>
-                  <button onClick={() => navigate(-1)} style={{ border: '1px solid var(--line)', borderRight: 'none', background: 'white', borderRadius: '7px 0 0 7px', padding: '5px 8px', cursor: 'pointer', color: 'var(--ink-2)' }}>
+                  <button onClick={() => navigate(-1)} style={{ border: '1px solid var(--line)', borderRight: 'none', background: 'var(--panel)', borderRadius: '7px 0 0 7px', padding: '5px 8px', cursor: 'pointer', color: 'var(--ink-2)' }}>
                     <Icon name="chev-l" size={13} />
                   </button>
-                  <button onClick={() => navigate(1)} style={{ border: '1px solid var(--line)', background: 'white', borderRadius: '0 7px 7px 0', padding: '5px 8px', cursor: 'pointer', color: 'var(--ink-2)' }}>
+                  <button onClick={() => navigate(1)} style={{ border: '1px solid var(--line)', background: 'var(--panel)', borderRadius: '0 7px 7px 0', padding: '5px 8px', cursor: 'pointer', color: 'var(--ink-2)' }}>
                     <Icon name="chev-r" size={13} />
                   </button>
                 </div>
                 <div style={{ width: 1, height: 18, background: 'var(--line)' }} />
-                <div style={{ display: 'flex', border: '1px solid var(--line)', borderRadius: 7, padding: 2, background: 'white' }}>
+                <div style={{ display: 'flex', border: '1px solid var(--line)', borderRadius: 7, padding: 2, background: 'var(--panel)' }}>
                   {[['day', t(lang, 'day')], ['4d', t(lang, 'fourDays')], ['week', t(lang, 'week')]].map(([k, l]) => (
                     <button key={k} onClick={() => { setView(k); setAnchorDate(new Date()); }}
                       style={{
-                        border: 'none', background: view === k ? 'var(--ink)' : 'transparent',
+                        border: 'none', background: view === k ? 'var(--accent)' : 'transparent',
                         color: view === k ? 'white' : 'var(--ink-2)',
                         padding: '4px 10px', borderRadius: 5, fontSize: 12, cursor: 'pointer',
                         fontWeight: view === k ? 500 : 400, fontFamily: 'inherit',
@@ -1408,7 +1409,7 @@ export default function ViewTareas({ tareas: initialTareas, objetivos, metas = [
                 onClick={() => setFilterObj('all')}
                 style={{
                   border: 'none',
-                  background: filterObj === 'all' ? 'var(--ink)' : 'white',
+                  background: filterObj === 'all' ? 'var(--accent)' : 'var(--panel)',
                   color: filterObj === 'all' ? 'white' : 'var(--ink-2)',
                   borderRadius: 999, padding: '3px 9px', fontSize: 11, cursor: 'pointer',
                   boxShadow: filterObj === 'all' ? 'none' : 'inset 0 0 0 1px var(--line)',
@@ -1427,7 +1428,7 @@ export default function ViewTareas({ tareas: initialTareas, objetivos, metas = [
                     style={{
                       border: 'none',
                       display: 'flex', alignItems: 'center', gap: 5,
-                      background: filterObj === o.id ? 'var(--ink)' : 'white',
+                      background: filterObj === o.id ? 'var(--accent)' : 'var(--panel)',
                       color: filterObj === o.id ? 'white' : 'var(--ink-2)',
                       borderRadius: 999, padding: '3px 9px', fontSize: 11, cursor: 'pointer',
                       boxShadow: filterObj === o.id ? 'none' : 'inset 0 0 0 1px var(--line)',

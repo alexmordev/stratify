@@ -31,14 +31,14 @@ export default function NewTaskForm({ lang, onSave, onCancel }) {
           style={{
             flex: 1, fontSize: 12.5,
             border: '1px solid var(--line)', borderRadius: 4,
-            padding: '6px 10px', background: 'white',
+            padding: '6px 10px', background: 'var(--panel)',
             outline: 'none',
           }}
         />
         <button
           type="submit"
           style={{
-            border: '1px solid var(--line)', background: 'white',
+            border: '1px solid var(--line)', background: 'var(--panel)',
             borderRadius: 4, padding: '6px 10px', cursor: 'pointer',
             fontSize: 12, color: 'var(--ink)',
           }}

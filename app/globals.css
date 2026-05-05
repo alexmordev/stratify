@@ -2,17 +2,35 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Dark theme tokens ─────────────────────────────────────── */
 :root {
-  --bg:     oklch(0.985 0.003 90);
-  --bg-2:   oklch(0.975 0.004 90);
-  --panel:  oklch(1 0 0);
-  --line:   oklch(0.92 0.004 90);
-  --line-2: oklch(0.955 0.004 90);
-  --ink:    oklch(0.22 0.01 90);
-  --ink-2:  oklch(0.42 0.008 90);
-  --ink-3:  oklch(0.62 0.006 90);
-  --ink-4:  oklch(0.78 0.004 90);
-  --accent: oklch(0.48 0.02 260);
+  --bg:     oklch(0.16 0.008 260);
+  --bg-2:   oklch(0.20 0.010 260);
+  --panel:  oklch(0.23 0.012 260);
+  --panel-2:oklch(0.27 0.013 260);
+  --line:   oklch(0.34 0.012 260);
+  --line-2: oklch(0.29 0.011 260);
+  --ink:    oklch(0.97 0.005 260);
+  --ink-2:  oklch(0.85 0.008 260);
+  --ink-3:  oklch(0.68 0.010 260);
+  --ink-4:  oklch(0.50 0.012 260);
+  --accent: oklch(0.72 0.17 265);
+  --accent-2: oklch(0.78 0.14 200);
+  --accent-glow: oklch(0.72 0.17 265 / 0.35);
+  --success: oklch(0.72 0.17 150);
+  --danger:  oklch(0.68 0.20 25);
+  --warn:    oklch(0.78 0.16 75);
+
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.35), 0 1px 1px rgba(0,0,0,0.2);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.40), 0 2px 4px rgba(0,0,0,0.25);
+  --shadow-lg: 0 16px 40px rgba(0,0,0,0.55), 0 4px 12px rgba(0,0,0,0.35);
+  --shadow-glow: 0 0 0 1px var(--accent-glow), 0 8px 24px var(--accent-glow);
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --t-fast: 0.12s;
+  --t-base: 0.2s;
+  --t-slow: 0.4s;
 }
 
 * {
@@ -23,6 +41,8 @@
 
 html {
   font-size: 14px;
+  background: var(--bg);
+  color-scheme: dark;
 }
 
 body {
@@ -30,6 +50,7 @@ body {
   color: var(--ink);
   font-family: var(--font-inter), Inter, sans-serif;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .mono {
@@ -41,70 +62,214 @@ body {
   font-style: italic;
 }
 
-/* Custom scrollbars */
+/* ─── Smooth global transitions ─────────────────────────────── */
+button,
+a,
+input,
+select,
+textarea,
+[role="button"],
+[role="checkbox"],
+[role="switch"] {
+  transition:
+    background-color var(--t-base) var(--ease-out),
+    border-color var(--t-base) var(--ease-out),
+    color var(--t-base) var(--ease-out),
+    box-shadow var(--t-base) var(--ease-out),
+    transform var(--t-fast) var(--ease-out),
+    opacity var(--t-fast) var(--ease-out);
+}
+
+/* Generic button hover lift */
+button:not(:disabled):hover {
+  filter: brightness(1.08);
+}
+button:not(:disabled):active {
+  transform: translateY(1px);
+  filter: brightness(0.95);
+}
+
+/* ─── Scrollbars ────────────────────────────────────────────── */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
-
 ::-webkit-scrollbar-track {
   background: var(--bg);
-  border: 2px solid var(--bg);
 }
-
 ::-webkit-scrollbar-thumb {
-  background: oklch(0.9 0.004 90);
+  background: var(--line);
   border-radius: 999px;
   border: 2px solid var(--bg);
+  transition: background var(--t-base) var(--ease-out);
 }
-
 ::-webkit-scrollbar-thumb:hover {
-  background: oklch(0.85 0.004 90);
+  background: var(--ink-4);
 }
 
-/* Focus visible */
+/* ─── Focus ─────────────────────────────────────────────────── */
 :focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px oklch(0.9 0.01 260);
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
 }
 
-/* Remove number input spinners */
+/* ─── Inputs ────────────────────────────────────────────────── */
+input, textarea, select {
+  color: var(--ink);
+  caret-color: var(--accent);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--ink-4);
+}
+
 input[type='number'] {
   -webkit-appearance: none;
   -moz-appearance: textfield;
 }
-
 input[type='number']::-webkit-outer-spin-button,
 input[type='number']::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
-
-/* Custom checkbox reset */
 input[type='checkbox'] {
   -webkit-appearance: none;
   appearance: none;
 }
 
-/* Pulse animation for active meta dots */
+/* Date inputs in dark mode */
+input[type='date'] {
+  color-scheme: dark;
+}
+
+/* ─── Animations ────────────────────────────────────────────── */
 @keyframes pulseDot {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 1; }
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.15); }
 }
 .pulse {
   animation: pulseDot 1.6s ease-in-out infinite;
 }
 
-/* Fade-in-up animation for modals */
 @keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(6px); }
+  from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 .fade-up {
-  animation: fadeInUp 0.25s ease both;
+  animation: fadeInUp 0.32s var(--ease-out) both;
 }
 
-/* Keyboard shortcut badge */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.fade-in {
+  animation: fadeIn 0.25s var(--ease-out) both;
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.scale-in {
+  animation: scaleIn 0.2s var(--ease-out) both;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255,255,255,0.08) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+@keyframes thinking {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+  40%           { transform: scale(1);   opacity: 1; }
+}
+.thinking-dot {
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  margin: 0 2px;
+  animation: thinking 1.2s ease-in-out infinite;
+}
+.thinking-dot:nth-child(2) { animation-delay: 0.18s; }
+.thinking-dot:nth-child(3) { animation-delay: 0.36s; }
+
+@keyframes progressFill {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 0 0 var(--accent-glow); }
+  50%      { box-shadow: 0 0 0 6px transparent; }
+}
+.glow {
+  animation: glow 2s ease-in-out infinite;
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.slide-in-right {
+  animation: slideInRight 0.28s var(--ease-out) both;
+}
+
+/* ─── Hover utilities ───────────────────────────────────────── */
+.hover-lift {
+  transition: transform var(--t-base) var(--ease-out),
+              box-shadow var(--t-base) var(--ease-out),
+              background var(--t-base) var(--ease-out);
+}
+.hover-lift:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.hover-bg {
+  transition: background var(--t-fast) var(--ease-out);
+}
+.hover-bg:hover {
+  background: var(--panel-2) !important;
+}
+
+.hover-glow:hover {
+  box-shadow: var(--shadow-glow);
+}
+
+/* ─── Cards ─────────────────────────────────────────────────── */
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  transition: border-color var(--t-base) var(--ease-out),
+              box-shadow var(--t-base) var(--ease-out);
+}
+.card:hover {
+  border-color: var(--line);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ─── Keyboard shortcut badge ───────────────────────────────── */
 .kbd {
   font-family: var(--font-mono), 'IBM Plex Mono', monospace;
   font-size: 10.5px;
@@ -116,14 +281,18 @@ input[type='checkbox'] {
   background: var(--bg-2);
 }
 
-/* Drag handle dots pattern */
 .drag-dots {
   background-image: radial-gradient(var(--ink-4) 1px, transparent 1px);
   background-size: 3px 3px;
   background-position: 0 0;
 }
 
-/* Prevent text selection during drag */
 .no-select {
   user-select: none;
+}
+
+/* ─── Selection ─────────────────────────────────────────────── */
+::selection {
+  background: var(--accent-glow);
+  color: var(--ink);
 }

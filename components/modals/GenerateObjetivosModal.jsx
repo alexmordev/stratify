@@ -193,9 +193,22 @@ export default function GenerateObjetivosModal({ hito, meta, onClose, onSaved })
         {/* Body */}
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           {state === 'loading' && (
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, color: 'var(--ink-3)', fontSize: 14 }}>
-              <div style={{ fontSize: 24 }}>⚙️</div>
-              Generating 12 weekly objectives…
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, color: 'var(--ink-3)', fontSize: 14 }}>
+              <span className="spin" style={{
+                display: 'inline-block', width: 28, height: 28, borderRadius: '50%',
+                border: '2.5px solid var(--line)',
+                borderTopColor: 'var(--accent)',
+                borderRightColor: 'var(--accent)',
+                boxSizing: 'border-box',
+              }} />
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                Generating 12 weekly objectives
+                <span style={{ display: 'inline-flex' }}>
+                  <span className="thinking-dot" />
+                  <span className="thinking-dot" />
+                  <span className="thinking-dot" />
+                </span>
+              </span>
             </div>
           )}
 

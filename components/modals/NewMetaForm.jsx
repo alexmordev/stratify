@@ -180,7 +180,8 @@ export default function NewMetaForm({ lang = 'es', onClose, onCreated, onUseAgen
             style={{
               padding: '8px 18px', fontSize: 13, cursor: saving ? 'default' : 'pointer',
               border: 'none', borderRadius: 7,
-              background: 'var(--ink)', color: 'white',
+              background: 'var(--accent)', color: 'white',
+              boxShadow: '0 4px 14px var(--accent-glow)',
               fontFamily: 'inherit', opacity: saving ? 0.6 : 1,
             }}
           >

@@ -558,8 +558,22 @@ export default function WizardAgent({
         {step === 2 && (
           <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
             {loadingPropose ? (
-              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-3)', fontSize: 14 }}>
-                {lang === 'en' ? 'Generating milestones…' : 'Generando hitos…'}
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, color: 'var(--ink-3)', fontSize: 14 }}>
+                <span className="spin" style={{
+                  display: 'inline-block', width: 28, height: 28, borderRadius: '50%',
+                  border: '2.5px solid var(--line)',
+                  borderTopColor: 'var(--accent)',
+                  borderRightColor: 'var(--accent)',
+                  boxSizing: 'border-box',
+                }} />
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                  {lang === 'en' ? 'Agent is thinking' : 'El agente está pensando'}
+                  <span style={{ display: 'inline-flex' }}>
+                    <span className="thinking-dot" />
+                    <span className="thinking-dot" />
+                    <span className="thinking-dot" />
+                  </span>
+                </span>
               </div>
             ) : (
               <StepHitos

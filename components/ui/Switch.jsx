@@ -18,29 +18,30 @@ export default function Switch({ checked = false, onChange, label, disabled = fa
         disabled={disabled}
         onClick={() => onChange?.(!checked)}
         style={{
-          width: 32,
-          height: 18,
+          width: 34,
+          height: 20,
           borderRadius: 999,
-          background: checked ? 'var(--ink)' : 'var(--line)',
+          background: checked ? 'var(--accent)' : 'var(--line)',
           border: 'none',
           padding: 2,
           cursor: disabled ? 'not-allowed' : 'pointer',
           display: 'flex',
           alignItems: 'center',
-          transition: 'background .12s',
+          transition: 'background var(--t-base) var(--ease-out), box-shadow var(--t-base) var(--ease-out)',
           flexShrink: 0,
+          boxShadow: checked ? '0 0 0 3px var(--accent-glow)' : 'inset 0 1px 2px rgba(0,0,0,0.4)',
         }}
       >
         <span
           style={{
             display: 'block',
-            width: 14,
-            height: 14,
+            width: 16,
+            height: 16,
             borderRadius: '50%',
             background: 'white',
             transform: checked ? 'translateX(14px)' : 'translateX(0)',
-            transition: 'transform .12s',
-            boxShadow: '0 1px 3px rgba(0,0,0,.2)',
+            transition: 'transform var(--t-base) var(--ease-out), box-shadow var(--t-base) var(--ease-out)',
+            boxShadow: '0 1px 3px rgba(0,0,0,.4), 0 0 0 0.5px rgba(0,0,0,0.1)',
           }}
         />
       </button>

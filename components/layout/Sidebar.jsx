@@ -79,7 +79,8 @@ export default function Sidebar({ onSearchOpen, onReviewOpen, onNewGoal }) {
             width: 26,
             height: 26,
             borderRadius: 7,
-            background: 'var(--ink)',
+            background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%)',
+            boxShadow: '0 2px 8px var(--accent-glow)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -196,8 +197,10 @@ export default function Sidebar({ onSearchOpen, onReviewOpen, onNewGoal }) {
                 fontSize: 13.5,
                 color: isActive ? 'var(--ink)' : 'var(--ink-2)',
                 fontWeight: isActive ? 500 : 400,
-                background: isActive ? 'oklch(0.95 0.004 90)' : 'transparent',
-                transition: 'background .1s',
+                background: isActive ? 'var(--panel-2)' : 'transparent',
+                borderLeft: isActive ? `2px solid var(--accent)` : '2px solid transparent',
+                paddingLeft: isActive ? 6 : 8,
+                transition: 'background var(--t-base) var(--ease-out), border-color var(--t-base) var(--ease-out)',
               }}
             >
               <Icon name={icon} size={15} />

@@ -99,7 +99,7 @@ export default function TaskItem({
     if (notesDraft !== (task.notes ?? '')) onUpdate(task.id, { notes: notesDraft });
   }
 
-  const bg = task.done ? 'var(--bg-2)' : task.day == null ? 'oklch(0.985 0.005 90)' : 'transparent';
+  const bg = task.done ? 'var(--bg-2)' : task.day == null ? 'var(--panel)' : 'transparent';
 
   return (
     <div style={{ borderBottom: '1px solid var(--line-2)' }}>
@@ -155,7 +155,7 @@ export default function TaskItem({
             onBlur={handleSave}
             style={{
               fontSize: 12.5, border: '1px solid var(--line)', borderRadius: 4,
-              padding: '2px 6px', background: 'white', outline: 'none', width: '100%',
+              padding: '2px 6px', background: 'var(--panel)', outline: 'none', width: '100%',
             }}
           />
         ) : (
@@ -198,7 +198,7 @@ export default function TaskItem({
             style={{
               width: 52, fontSize: 11, fontFamily: 'var(--font-mono, monospace)',
               border: '1px solid var(--line)', borderRadius: 4,
-              padding: '2px 4px', background: 'white', outline: 'none', textAlign: 'center',
+              padding: '2px 4px', background: 'var(--panel)', outline: 'none', textAlign: 'center',
             }}
           />
         ) : (

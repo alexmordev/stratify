@@ -978,7 +978,7 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
               onClick={() => setMetaFormOpen(true)}
               title={t(lang, 'newMeta')}
               style={{
-                border: '1px solid var(--line)', background: 'white', borderRadius: 7,
+                border: '1px solid var(--line)', background: 'var(--panel)', borderRadius: 7,
                 padding: '4px 7px', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--ink-2)',
               }}
@@ -1151,7 +1151,7 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
                     } catch { /* ignore */ }
                   }}
                   style={{
-                    border: '1px solid var(--line)', background: 'white', borderRadius: 7,
+                    border: '1px solid var(--line)', background: 'var(--panel)', borderRadius: 7,
                     padding: '4px 10px', cursor: 'pointer',
                     display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: 'var(--ink-2)',
                   }}
@@ -1200,7 +1200,7 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
                   type="button"
                   onClick={(e) => { e.stopPropagation(); handleAddHito(selectedMeta.id); }}
                   style={{
-                    border: '1px solid var(--line)', background: 'white', borderRadius: 7,
+                    border: '1px solid var(--line)', background: 'var(--panel)', borderRadius: 7,
                     padding: '4px 10px', cursor: 'pointer',
                     display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: 'var(--ink-2)',
                   }}
