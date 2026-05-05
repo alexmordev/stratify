@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import Check from '@/components/ui/Check';
 import Icon from '@/components/ui/Icon';
 import { t } from '@/lib/i18n';
 
@@ -111,7 +110,7 @@ export default function TaskItem({
         onDragEnd={onDragEnd}
         style={{
           display: 'grid',
-          gridTemplateColumns: '14px 16px 1fr auto auto auto auto',
+          gridTemplateColumns: '14px 22px 1fr auto auto auto auto',
           alignItems: 'center', gap: 10,
           padding: '8px 14px',
           cursor: isDraggable ? 'grab' : 'default',
@@ -125,7 +124,26 @@ export default function TaskItem({
         </span>
 
         {/* Done toggle */}
-        <Check checked={task.done} onChange={() => onToggle(task.id)} size={16} />
+        <button
+          type="button"
+          onClick={() => onToggle(task.id)}
+          title={task.done
+            ? (lang === 'es' ? 'Marcar pendiente' : 'Mark pending')
+            : (lang === 'es' ? 'Marcar completada' : 'Mark done')}
+          style={{
+            width: 20, height: 20, borderRadius: '50%', padding: 0, flexShrink: 0,
+            border: task.done
+              ? '2px solid oklch(0.52 0.18 145)'
+              : '2px solid var(--line)',
+            background: task.done ? 'oklch(0.52 0.18 145)' : 'transparent',
+            cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            transition: 'border-color .15s, background .15s, box-shadow .15s',
+            boxShadow: task.done ? '0 0 0 3px oklch(0.91 0.09 145)' : 'none',
+          }}
+        >
+          {task.done && <Icon name="check" size={11} style={{ color: 'white' }} />}
+        </button>
 
         {/* Title + backlog badge */}
         {isEditing ? (

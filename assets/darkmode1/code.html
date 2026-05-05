@@ -1,0 +1,382 @@
+<html class="dark"><head>
+<meta charset="utf-8"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "error": "#ffb4ab",
+            "on-primary-fixed": "#0c006b",
+            "surface-bright": "#393939",
+            "on-tertiary-fixed-variant": "#8c1520",
+            "on-background": "#e5e2e1",
+            "on-tertiary": "#68000f",
+            "secondary-fixed": "#bee9ff",
+            "on-error": "#690005",
+            "inverse-surface": "#e5e2e1",
+            "on-error-container": "#ffdad6",
+            "surface-container": "#201f1f",
+            "outline": "#918fa0",
+            "inverse-on-surface": "#313030",
+            "surface-container-high": "#2a2a2a",
+            "surface-tint": "#c2c1ff",
+            "surface-container-lowest": "#0e0e0e",
+            "background": "#131313",
+            "error-container": "#93000a",
+            "surface-variant": "#353534",
+            "on-primary": "#1800a7",
+            "inverse-primary": "#4d4ad5",
+            "primary": "#c2c1ff",
+            "on-primary-fixed-variant": "#332dbc",
+            "on-tertiary-container": "#fff0ee",
+            "surface-container-low": "#1c1b1b",
+            "on-secondary-fixed-variant": "#004d64",
+            "tertiary": "#ffb3b0",
+            "on-tertiary-fixed": "#410006",
+            "secondary-container": "#139cc7",
+            "secondary-fixed-dim": "#68d3ff",
+            "surface": "#131313",
+            "outline-variant": "#464554",
+            "on-secondary": "#003546",
+            "secondary": "#68d3ff",
+            "primary-container": "#5e5ce6",
+            "on-surface": "#e5e2e1",
+            "on-primary-container": "#f4f1ff",
+            "surface-container-highest": "#353534",
+            "primary-fixed": "#e2dfff",
+            "on-secondary-container": "#002e3d",
+            "on-surface-variant": "#c7c4d7",
+            "surface-dim": "#131313",
+            "on-secondary-fixed": "#001f2a",
+            "tertiary-container": "#c44043",
+            "tertiary-fixed-dim": "#ffb3b0",
+            "primary-fixed-dim": "#c2c1ff",
+            "tertiary-fixed": "#ffdad8"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "md": "16px",
+            "gutter": "16px",
+            "container-margin": "24px",
+            "unit": "4px",
+            "sm": "8px",
+            "xs": "4px",
+            "xl": "40px",
+            "lg": "24px"
+          },
+          "fontFamily": {
+            "h1": ["Inter"],
+            "button": ["Inter"],
+            "label-caps": ["Inter"],
+            "body-md": ["Inter"],
+            "h2": ["Inter"],
+            "body-lg": ["Inter"]
+          },
+          "fontSize": {
+            "h1": ["32px", {"lineHeight": "1.2", "letterSpacing": "0.02em", "fontWeight": "700"}],
+            "button": ["14px", {"lineHeight": "1", "letterSpacing": "0.02em", "fontWeight": "600"}],
+            "label-caps": ["12px", {"lineHeight": "1.4", "letterSpacing": "0.08em", "fontWeight": "600"}],
+            "body-md": ["14px", {"lineHeight": "1.5", "letterSpacing": "0.01em", "fontWeight": "400"}],
+            "h2": ["24px", {"lineHeight": "1.3", "letterSpacing": "0.01em", "fontWeight": "600"}],
+            "body-lg": ["16px", {"lineHeight": "1.6", "letterSpacing": "0.01em", "fontWeight": "400"}]
+          }
+        }
+      }
+    };
+  </script>
+<style>
+    .glass-surface {
+      background: rgba(30, 30, 30, 0.6);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+    .dot-grid {
+      display: flex;
+      gap: 4px;
+    }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+  </style>
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen flex">
+<!-- SideNavBar Shell -->
+<aside class="hidden md:flex flex-col h-screen w-64 border-r border-white/10 bg-zinc-900/80 backdrop-blur-2xl sticky left-0 top-0 pt-4 pb-8">
+<div class="px-6 mb-8">
+<div class="flex items-center gap-3 mb-2">
+<div class="w-10 h-10 rounded-lg bg-indigo-500 flex items-center justify-center overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A professional organization logo for Dighaul Productivity, featuring abstract geometric shapes in electric indigo and teal, set against a dark obsidian background. The design is sleek, modern, and conveys a sense of high-performance and precision engineering." src="https://lh3.googleusercontent.com/aida/ADBb0uiy_4ZiZ32KleIaT6Hgw38BTbhuI3V3_T_TJ8bshGFuLuH4SYulZjXMyoMG3rcV_Npyg9iv5DNLuh-gm9r04Fuk1oBTrIkuD1UkbQkQ_4JaJubC1kzJJq4GkH_5aCMrguYWr_rywBYLExJ-oq4i4WtgqZJ1rFFlDAmg1kMSjygKaJsWGRBqaLlYKmsmVzqMQc_taj8rN_gLiMDeqcnwG6hVtKufAaCywMnwqAR0zXFhNb-NeYm_vFibgFiiHK2kclXDpXzXI_LJR78"/>
+</div>
+<div>
+<h1 class="text-lg font-black text-white leading-tight">Dighaul</h1>
+<p class="text-xs text-zinc-500">Peak Performance</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 px-2 space-y-1">
+<!-- Active Tab: Metas -->
+<a class="bg-indigo-500/10 text-indigo-400 border-r-2 border-indigo-500 px-4 py-3 flex items-center gap-3 font-sans text-sm font-medium transition-all cursor-pointer" href="#">
+<span class="material-symbols-outlined" data-icon="target">target</span>
+<span>Metas</span>
+</a>
+<!-- Inactive Tab: Tareas -->
+<a class="text-zinc-500 px-4 py-3 flex items-center gap-3 font-sans text-sm font-medium hover:bg-white/5 hover:text-zinc-200 transition-all cursor-pointer" href="#">
+<span class="material-symbols-outlined" data-icon="checklist">checklist</span>
+<span>Tareas</span>
+</a>
+</nav>
+<div class="px-4 mb-6">
+<button class="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-button text-button py-3 rounded-xl shadow-[0_0_15px_rgba(79,70,229,0.3)] transition-all active:scale-95">
+        Nueva Meta
+      </button>
+</div>
+<div class="px-2 space-y-1 border-t border-white/10 pt-4">
+<a class="text-zinc-500 px-4 py-2 flex items-center gap-3 font-sans text-xs hover:text-zinc-200 transition-all" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="inbox">inbox</span>
+<span>Bandeja</span>
+</a>
+<a class="text-zinc-500 px-4 py-2 flex items-center gap-3 font-sans text-xs hover:text-zinc-200 transition-all" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="help">help</span>
+<span>Ayuda</span>
+</a>
+</div>
+</aside>
+<div class="flex-1 flex flex-col min-h-screen">
+<!-- TopNavBar Shell -->
+<header class="flex justify-between items-center px-6 py-3 w-full sticky top-0 z-50 bg-zinc-950/50 backdrop-blur-xl border-b border-white/10 shadow-2xl shadow-black/40">
+<div class="flex items-center gap-6">
+<span class="text-xl font-bold bg-gradient-to-r from-indigo-500 to-teal-400 bg-clip-text text-transparent">Dighaul</span>
+<div class="relative">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-zinc-500 text-sm" data-icon="search">search</span>
+<input class="bg-zinc-900 border-none rounded-full pl-9 pr-4 py-1.5 text-sm w-64 focus:ring-1 focus:ring-indigo-500 text-on-surface" placeholder="Buscar..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-zinc-400 hover:bg-white/5 p-2 rounded-full transition-colors active:scale-95">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="text-zinc-400 hover:bg-white/5 p-2 rounded-full transition-colors active:scale-95">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-white/10">
+<img alt="User profile" class="w-full h-full object-cover" data-alt="A professional user profile avatar in a minimalist dark theme. The individual is a young creative professional with a focused expression, set against a softly blurred studio background with cinematic blue and purple rim lighting. High-end photography style with crisp details and rich textures." src="https://lh3.googleusercontent.com/aida/ADBb0uhJVX3Isg1-zknnD0e-rm3MhT6sUp9yFbFYJ40Qxr1YEXsk5sZi70C7P2hTVg5mxml-78cqkRkf1aQ9qGSZv86GVs18s3uNJjXruFHERfrBYIIq7YSQJPLoaLk2_tTqVl32TcB7_TEz7Cxcs5WNAMcsJNPtoPOgceBD_437kwmyxLBlKKFTTVkWOYwgMOaJ8Tr1QECqpF1RvlYxLS5K4WnJRq8oV6Da0T0lrAGeRDnAtM-LXHb-I_iaoUyP0tU3HgNiLhstUU7cl1I"/>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="p-lg md:p-xl space-y-lg max-w-7xl mx-auto w-full">
+<!-- Dashboard Header -->
+<section class="flex flex-col md:flex-row gap-lg items-start md:items-center justify-between">
+<div class="space-y-sm">
+<div class="flex items-center gap-md">
+<h2 class="font-h1 text-h1 text-white">Trabajo en Dighaul</h2>
+<div class="dot-grid">
+<div class="dot bg-indigo-500"></div>
+<div class="dot bg-indigo-400"></div>
+<div class="dot bg-teal-500"></div>
+<div class="dot bg-teal-400"></div>
+</div>
+</div>
+<div class="flex items-center gap-2 text-zinc-500">
+<span class="material-symbols-outlined text-sm" data-icon="calendar_today">calendar_today</span>
+<span class="font-body-md">Octubre 2023 - Diciembre 2023</span>
+</div>
+</div>
+<div class="flex items-center gap-lg glass-surface p-md rounded-2xl">
+<div class="relative w-20 h-20">
+<svg class="w-full h-full -rotate-90">
+<circle class="text-zinc-800" cx="40" cy="40" fill="transparent" r="34" stroke="currentColor" stroke-width="6"></circle>
+<circle class="text-indigo-500 transition-all duration-500" cx="40" cy="40" fill="transparent" r="34" stroke="currentColor" stroke-dasharray="213.6" stroke-dashoffset="213.6" stroke-width="6"></circle>
+</svg>
+<div class="absolute inset-0 flex items-center justify-center">
+<span class="text-lg font-bold text-white">0%</span>
+</div>
+</div>
+<div>
+<p class="text-label-caps text-zinc-500">PROGRESO TOTAL</p>
+<p class="text-h2 font-h2 text-white">0 Metas Listas</p>
+</div>
+</div>
+</section>
+<!-- Metric Grid -->
+<section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-md">
+<!-- Metric Card 1 -->
+<div class="glass-surface p-md rounded-2xl space-y-sm hover:border-indigo-500/50 transition-colors cursor-default">
+<div class="flex justify-between items-start">
+<span class="material-symbols-outlined text-indigo-400" data-icon="ads_click">ads_click</span>
+<span class="text-xs text-zinc-500">Active</span>
+</div>
+<div>
+<p class="text-h2 font-h2 text-white">2</p>
+<p class="text-body-md text-zinc-400">Objetivos</p>
+</div>
+</div>
+<!-- Metric Card 2 -->
+<div class="glass-surface p-md rounded-2xl space-y-sm hover:border-teal-500/50 transition-colors cursor-default">
+<div class="flex justify-between items-start">
+<span class="material-symbols-outlined text-teal-400" data-icon="task_alt">task_alt</span>
+<span class="text-xs text-zinc-500">Tasks</span>
+</div>
+<div>
+<p class="text-h2 font-h2 text-white">0/10</p>
+<p class="text-body-md text-zinc-400">Tareas</p>
+</div>
+</div>
+<!-- Metric Card 3 -->
+<div class="glass-surface p-md rounded-2xl space-y-sm hover:border-indigo-500/50 transition-colors cursor-default">
+<div class="flex justify-between items-start">
+<span class="material-symbols-outlined text-indigo-400" data-icon="timer">timer</span>
+<span class="text-xs text-zinc-500">Tracking</span>
+</div>
+<div>
+<p class="text-h2 font-h2 text-white">0/27</p>
+<p class="text-body-md text-zinc-400">Sesiones</p>
+</div>
+</div>
+<!-- Metric Card 4 -->
+<div class="glass-surface p-md rounded-2xl space-y-sm hover:border-teal-500/50 transition-colors cursor-default">
+<div class="flex justify-between items-start">
+<span class="material-symbols-outlined text-teal-400" data-icon="workspace_premium">workspace_premium</span>
+<span class="text-xs text-zinc-500">Milestones</span>
+</div>
+<div>
+<p class="text-h2 font-h2 text-white">0/1</p>
+<p class="text-body-md text-zinc-400">Hitos</p>
+</div>
+</div>
+</section>
+<!-- Expandable Sections (Tasks) -->
+<section class="space-y-lg">
+<!-- Chatbots Parte 1 -->
+<div class="glass-surface rounded-2xl overflow-hidden">
+<div class="p-md flex items-center justify-between bg-white/5 border-b border-white/5">
+<div class="flex items-center gap-md">
+<button class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors">
+<span class="material-symbols-outlined text-white" data-icon="expand_more">expand_more</span>
+</button>
+<h3 class="font-h2 text-body-lg text-white">Chatbots Parte 1</h3>
+<div class="flex gap-2">
+<span class="px-3 py-1 bg-teal-500/10 text-teal-400 text-xs font-semibold rounded-full border border-teal-500/20">Media</span>
+<span class="px-3 py-1 bg-indigo-500/10 text-indigo-400 text-xs font-semibold rounded-full border border-indigo-500/20">En curso</span>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<div class="h-1.5 w-32 bg-zinc-800 rounded-full overflow-hidden">
+<div class="h-full bg-teal-500 w-0"></div>
+</div>
+<span class="text-xs text-zinc-500">0%</span>
+</div>
+</div>
+<div class="p-md space-y-1">
+<!-- Task Item 1 -->
+<div class="flex items-center justify-between p-md hover:bg-white/5 rounded-xl transition-colors group">
+<div class="flex items-center gap-md">
+<div class="w-6 h-6 border-2 border-zinc-700 rounded-lg flex items-center justify-center group-hover:border-indigo-500 transition-colors">
+<span class="material-symbols-outlined text-indigo-500 text-xs hidden group-hover:block" data-icon="check">check</span>
+</div>
+<span class="text-body-md text-on-surface">Definición de requerimientos iniciales</span>
+</div>
+<div class="flex items-center gap-lg">
+<div class="flex items-center gap-1 text-zinc-500">
+<span class="material-symbols-outlined text-sm" data-icon="bolt">bolt</span>
+<span class="text-xs">High</span>
+</div>
+<div class="w-8 h-8 rounded-full border border-white/10 bg-zinc-800 flex items-center justify-center overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A futuristic and detailed representation of a productivity task node. Glowing neon lines connect various data points, with a central hub pulsing in deep blue and teal. The background is a sophisticated dark matte finish, symbolizing a high-tech obsidian work environment." src="https://lh3.googleusercontent.com/aida/ADBb0uhHUgnbEIOXUQFqjd9Ldw5A5JwG0AWM2ytwvrrrb-d8WsNDa3MByyi3UZY5H-wl7mPNLHwmSAHJ8MrTTtBG6B5933WxD1bAE4h1UfvCOPZUV2U0af7Fk928Jooj4RPg1qTfjROqp3YrzY7slq24v_Eq5KSnd4cFPffKA7ZcuaLZmC8PdzTLt_3eyT7mFMw9z0Lx30Skh1b7OtjUJw0d-dG9j25Q1cY_9yI_p2FcqKIip0bvixqUXz5mhQNLhuL6LWMM0--N2yRdhQ8"/>
+</div>
+</div>
+</div>
+<!-- Task Item 2 -->
+<div class="flex items-center justify-between p-md hover:bg-white/5 rounded-xl transition-colors group">
+<div class="flex items-center gap-md">
+<div class="w-6 h-6 border-2 border-zinc-700 rounded-lg flex items-center justify-center group-hover:border-indigo-500 transition-colors">
+<span class="material-symbols-outlined text-indigo-500 text-xs hidden group-hover:block" data-icon="check">check</span>
+</div>
+<span class="text-body-md text-on-surface">Diseño de arquitectura conversacional</span>
+</div>
+<div class="flex items-center gap-lg">
+<div class="flex items-center gap-1 text-zinc-500">
+<span class="material-symbols-outlined text-sm" data-icon="bolt">bolt</span>
+<span class="text-xs">Medium</span>
+</div>
+<div class="w-8 h-8 rounded-full border border-white/10 bg-zinc-800 flex items-center justify-center">
+<span class="material-symbols-outlined text-xs text-zinc-500" data-icon="person">person</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Chatbots Parte 2 -->
+<div class="glass-surface rounded-2xl overflow-hidden opacity-80">
+<div class="p-md flex items-center justify-between bg-white/5">
+<div class="flex items-center gap-md">
+<button class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors">
+<span class="material-symbols-outlined text-zinc-500" data-icon="chevron_right">chevron_right</span>
+</button>
+<h3 class="font-h2 text-body-lg text-white">Chatbots Parte 2</h3>
+<div class="flex gap-2">
+<span class="px-3 py-1 bg-coral-500/10 text-error text-xs font-semibold rounded-full border border-error/20">Urgente</span>
+<span class="px-3 py-1 bg-zinc-500/10 text-zinc-500 text-xs font-semibold rounded-full border border-white/10">Pendiente</span>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<div class="h-1.5 w-32 bg-zinc-800 rounded-full overflow-hidden">
+<div class="h-full bg-indigo-500 w-0"></div>
+</div>
+<span class="text-xs text-zinc-500">0%</span>
+</div>
+</div>
+</div>
+<!-- Empty State Visual for Placeholder -->
+<div class="relative w-full h-48 rounded-2xl overflow-hidden glass-surface border-dashed border-white/20 flex flex-col items-center justify-center space-y-md">
+<img class="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-overlay" data-alt="A widescreen cinematic visualization of a high-tech workspace. Translucent holographic interfaces display complex data streams and productivity charts. The atmosphere is professional and calm, with a deep indigo and teal color scheme. Background features a soft bokeh of a modern laboratory or creative studio." src="https://lh3.googleusercontent.com/aida/ADBb0uj3fysg3hvtybuIdj9g6iiBGPJ0WAV2htmXh1xOvbUL82wbKV-UO8S9dAO0WGRmnra5AxpNjl4mW51FrMgJWBsgd9qUzXaqj3jKwdS31AaqCOFE4jn9wva2duplccSpXdtjaF5h-Sq4QUjGiAwxGhmX3PkAp9xox0wBgC1h16BaB-wCC7mRPgF3ZVSz7kA1C3HixPaGxUgNlbl7gJbLcvDZgyvhlfHJs2yl2S93sDDEZj973xVfVY_HM5X8AzJp6WlVXHnRCZS4A3w"/>
+<span class="material-symbols-outlined text-4xl text-zinc-600" data-icon="add_circle">add_circle</span>
+<p class="text-zinc-500 font-body-md">Haz clic para agregar una nueva sección de tareas</p>
+</div>
+</section>
+<!-- Additional Visual Context Image Section -->
+<section class="grid grid-cols-1 md:grid-cols-2 gap-lg mt-xl">
+<div class="glass-surface rounded-2xl p-md overflow-hidden h-64 relative">
+<img class="w-full h-full object-cover rounded-xl opacity-80" data-alt="A macro shot of a high-resolution digital display showing intricate data visualizations and abstract flowcharts. The lighting is low and dramatic, emphasizing the electric indigo and vibrant teal accents of the UI elements. The style is hyper-modern and focused, representing peak digital organization and productivity." src="https://lh3.googleusercontent.com/aida/ADBb0uhLHVoDzJ6aegHaPDDi2Y9zdHqc6zrQ6BAsSbcHSmLcQ3PM_wpB1IYqnbFNM3TCcILpOwPB6NXOpn11kjp5V3L5s3PGOAgha8tXc9_ahiANqagDVLtH4awak_xPh84bmTPur80LNk98AkLJkQWIbd-116AiHuyTo1NHQDSxNsHVm-0lJY__nPxpwBCghmZxO7hiIoDV7lnOZccIjM4c7pm8WAekpM1li5Cn27uK_Xj4pzHefH2DI1Kxmh3fU6nO8rqPi9mOuimGjko"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent p-lg flex flex-col justify-end">
+<h4 class="text-white font-h2 text-body-lg">Análisis de Rendimiento</h4>
+<p class="text-zinc-400 text-sm">Visualiza el progreso de tus metas en tiempo real con nuestras herramientas de analítica avanzada.</p>
+</div>
+</div>
+<div class="glass-surface rounded-2xl p-lg flex flex-col justify-between">
+<div class="space-y-sm">
+<span class="text-label-caps text-indigo-400">PRÓXIMO HITO</span>
+<h4 class="text-white font-h1 text-h2">Entrega MVP Chatbots</h4>
+<p class="text-zinc-400">Finalización de la fase 1 de desarrollo y pruebas de integración con el núcleo del sistema.</p>
+</div>
+<div class="flex items-center justify-between border-t border-white/10 pt-md mt-md">
+<div class="flex -space-x-2">
+<div class="w-8 h-8 rounded-full border-2 border-background bg-zinc-800"></div>
+<div class="w-8 h-8 rounded-full border-2 border-background bg-zinc-700"></div>
+<div class="w-8 h-8 rounded-full border-2 border-background bg-zinc-600 flex items-center justify-center text-[10px] text-white font-bold">+3</div>
+</div>
+<span class="text-xs text-zinc-500">Vence en 4 días</span>
+</div>
+</div>
+</section>
+</main>
+</div>
+<!-- Contextual FAB - Only for main screens -->
+<button class="fixed bottom-lg right-lg w-14 h-14 bg-indigo-500 text-white rounded-full flex items-center justify-center shadow-2xl hover:bg-indigo-600 hover:scale-110 active:scale-95 transition-all z-[60]">
+<span class="material-symbols-outlined" data-icon="add">add</span>
+</button>
+</body></html>

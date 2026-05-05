@@ -2,7 +2,6 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import SectionHeader from '@/components/ui/SectionHeader';
-import Check from '@/components/ui/Check';
 import Btn from '@/components/ui/Btn';
 import Icon from '@/components/ui/Icon';
 import { t } from '@/lib/i18n';
@@ -172,6 +171,7 @@ function TaskCard({ tarea, onToggle, onDragStart, onResize, columnDate, overlapC
         width: `calc(${(1 / overlapTotal) * 100}% - 4px)`,
         borderRadius: 6,
         background: pal.bg,
+        border: `1.5px solid ${pal.dot}`,
         color: pal.fg,
         padding: '3px 6px',
         overflow: 'hidden',
@@ -189,11 +189,22 @@ function TaskCard({ tarea, onToggle, onDragStart, onResize, columnDate, overlapC
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
         <span onClick={(e) => e.stopPropagation()}>
-          <Check
-            checked={tarea.done}
-            onChange={() => onToggle(tarea.id)}
-            size={11}
-          />
+          <button
+            type="button"
+            onClick={() => onToggle(tarea.id)}
+            style={{
+              width: 14, height: 14, borderRadius: '50%', padding: 0, flexShrink: 0,
+              border: tarea.done
+                ? '1.5px solid oklch(0.52 0.18 145)'
+                : '1.5px solid rgba(0,0,0,0.22)',
+              background: tarea.done ? 'oklch(0.52 0.18 145)' : 'rgba(255,255,255,0.45)',
+              cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'all .15s',
+            }}
+          >
+            {tarea.done && <Icon name="check" size={8} style={{ color: 'white' }} />}
+          </button>
         </span>
         <span
           style={{

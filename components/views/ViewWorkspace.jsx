@@ -843,25 +843,22 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
   }
 
   function handleReorder(taskId, objId, beforeIdx) {
-    setTareas(prev => {
-      const moving = prev.find(t => t.id === taskId);
-      if (!moving) return prev;
-      const sameObj = prev.filter(t => t.objId === objId && t.id !== taskId)
-        .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-      const updated = { ...moving, objId };
-      sameObj.splice(Math.min(beforeIdx, sameObj.length), 0, updated);
-      const reordered = sameObj.map((t, i) => ({ ...t, sortOrder: i }));
-      return prev.map(t => {
-        if (t.id === taskId) return reordered.find(r => r.id === taskId) ?? t;
-        const r = reordered.find(r => r.id === t.id);
-        return r ?? t;
-      });
-    });
-    reorderTareas(
-      tareas
-        .filter(t => t.objId === objId)
-        .map((t, i) => ({ id: t.id, sortOrder: i }))
-    ).catch(() => {});
+    const moving = tareas.find(t => t.id === taskId);
+    if (!moving) return;
+
+    // Full visual order (same sort as ObjectiveCard uses for rendering)
+    const allInObj = sortTasks(tareas.filter(t => t.objId === objId), 'order');
+    const fromIdx = allInObj.findIndex(t => t.id === taskId);
+    const others = allInObj.filter(t => t.id !== taskId);
+
+    // beforeIdx references the full array; after removing the dragged item,
+    // every slot after fromIdx shifts down by 1
+    const insertAt = fromIdx !== -1 && fromIdx < beforeIdx ? beforeIdx - 1 : beforeIdx;
+    others.splice(Math.min(insertAt, others.length), 0, { ...moving, objId });
+    const reordered = others.map((t, i) => ({ ...t, sortOrder: i }));
+
+    setTareas(prev => prev.map(t => reordered.find(r => r.id === t.id) ?? t));
+    reorderTareas(reordered.map(({ id, sortOrder }) => ({ id, sortOrder }))).catch(() => {});
   }
 
   async function handleCreateTask(objId, title) {
