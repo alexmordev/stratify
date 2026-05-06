@@ -435,11 +435,24 @@ function EditTareaForm({ tarea, lang, onSave, onCancel, onDelete, objectives }) 
             value={form.objId}
             onChange={e => set('objId', e.target.value)}
             title={lang === 'es' ? 'Objetivo' : 'Objective'}
-            style={{ ...smallInput, maxWidth: 160 }}
+            style={{ ...smallInput, maxWidth: 180 }}
           >
-            {objectives.map(o => (
-              <option key={o.id} value={o.id}>{o.title}</option>
-            ))}
+            {(() => {
+              const groups = {};
+              objectives.forEach(o => {
+                if (!groups[o.hitoId]) groups[o.hitoId] = { label: o.hitoEnunciado, items: [] };
+                groups[o.hitoId].items.push(o);
+              });
+              return Object.entries(groups).map(([hitoId, group]) => (
+                <optgroup key={hitoId} label={group.label}>
+                  {group.items.map(o => (
+                    <option key={o.id} value={o.id}>
+                      {lang === 'en' && o.title_en ? o.title_en : o.title}
+                    </option>
+                  ))}
+                </optgroup>
+              ));
+            })()}
           </select>
         )}
         <div style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
@@ -1187,7 +1200,6 @@ function ObjetivoCard({
 function MetaGroup({
   meta,
   objetivos,
-  allObjetivos,
   allTareas,
   lang,
   onObjetivoAdd,
@@ -1198,6 +1210,11 @@ function MetaGroup({
 }) {
   const metaTitle = lang === 'en' && meta.title_en ? meta.title_en : meta.title;
   const progress = metaProgress(meta.id, objetivos);
+
+  const hitoMap = Object.fromEntries((meta.hitos ?? []).map(h => [h.id, h.enunciado]));
+  const moveableObjetivos = objetivos
+    .filter(o => !o.done && o.hitoId)
+    .map(o => ({ id: o.id, title: o.title, title_en: o.title_en, color: o.color, hitoId: o.hitoId, hitoEnunciado: hitoMap[o.hitoId] ?? '' }));
 
   return (
     <section data-testid={`meta-group-${meta.id}`} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -1242,7 +1259,7 @@ function MetaGroup({
               onEdit={onObjetivoEdit}
               onDelete={onObjetivoDelete}
               onComplete={onObjetivoComplete}
-              allObjetivos={allObjetivos}
+              allObjetivos={moveableObjetivos}
               onMoveTask={onMoveTask}
             />
           );
@@ -1435,7 +1452,6 @@ export default function ViewObjetivos({
                 key={meta.id}
                 meta={meta}
                 objetivos={metaObjetivos}
-                allObjetivos={objetivos}
                 allTareas={tareas}
                 lang={lang}
                 onObjetivoAdd={handleObjetivoAdd}

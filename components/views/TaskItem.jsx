@@ -327,23 +327,37 @@ export default function TaskItem({
                 {t(lang, 'moveToObjective')}:
               </span>
               <select
-                value={task.objId}
+                value=""
                 onChange={e => {
                   const newObjId = e.target.value;
-                  if (newObjId !== task.objId) onUpdate(task.id, { objId: newObjId });
+                  if (newObjId) onUpdate(task.id, { objId: newObjId });
                 }}
                 style={{
                   fontSize: 11, fontFamily: 'inherit',
                   border: '1px solid var(--line)', borderRadius: 5,
                   padding: '2px 6px', background: 'var(--bg-2)', color: 'var(--ink)',
-                  maxWidth: 220, outline: 'none',
+                  maxWidth: 260, outline: 'none',
                 }}
               >
-                {objectives.map(o => (
-                  <option key={o.id} value={o.id}>
-                    {o.title}
-                  </option>
-                ))}
+                <option value="" disabled>
+                  {lang === 'es' ? 'Mover a…' : 'Move to…'}
+                </option>
+                {(() => {
+                  const groups = {};
+                  objectives.forEach(o => {
+                    if (!groups[o.hitoId]) groups[o.hitoId] = { label: o.hitoEnunciado, items: [] };
+                    groups[o.hitoId].items.push(o);
+                  });
+                  return Object.entries(groups).map(([hitoId, group]) => (
+                    <optgroup key={hitoId} label={group.label}>
+                      {group.items.map(o => (
+                        <option key={o.id} value={o.id}>
+                          {lang === 'en' && o.title_en ? o.title_en : o.title}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ));
+                })()}
               </select>
             </div>
           )}

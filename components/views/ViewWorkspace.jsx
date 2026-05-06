@@ -795,6 +795,11 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
   const doneSessions = metaTareas.filter(t => t.done).reduce((s, t) => s + (t.sessions ?? 0), 0);
   const metaHitos = selectedMeta ? (selectedMeta.hitos ?? []) : [];
   const hitosDone = metaHitos.filter(h => h.done ?? false).length;
+
+  const hitoMap = Object.fromEntries(metaHitos.map(h => [h.id, h.enunciado]));
+  const moveableObjetivos = metaObjetivos
+    .filter(o => !o.done && o.hitoId)
+    .map(o => ({ id: o.id, title: o.title, title_en: o.title_en, color: o.color, hitoId: o.hitoId, hitoEnunciado: hitoMap[o.hitoId] ?? '' }));
   const metaPct = metaHitos.length
     ? Math.round((hitosDone / metaHitos.length) * 100)
     : 0;
@@ -1199,7 +1204,7 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
                       key={o.id}
                       objetivo={o}
                       allTareas={tareas}
-                      allObjetivos={objetivos}
+                      allObjetivos={moveableObjetivos}
                       lang={lang}
                       onTaskToggle={handleTaskToggle}
                       onTaskUnschedule={handleUnschedule}
