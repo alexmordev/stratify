@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import SectionHeader from '@/components/ui/SectionHeader';
 import ProgressBar from '@/components/ui/ProgressBar';
 import ColorDot from '@/components/ui/ColorDot';
@@ -23,6 +24,8 @@ import {
   updateTarea,
   reorderTareas,
   deleteTarea,
+  unscheduleObjetivoTareas,
+  changeTareaObjetivo,
 } from '@/lib/actions/tareas';
 
 function getLang() {
@@ -335,7 +338,7 @@ function ConfirmDeleteObjetivo({ objetivo, lang, onClose, onConfirm }) {
 
 // ─── Inline task edit form ────────────────────────────────────────────────────
 
-function EditTareaForm({ tarea, lang, onSave, onCancel, onDelete }) {
+function EditTareaForm({ tarea, lang, onSave, onCancel, onDelete, objectives }) {
   const [form, setForm] = useState({
     title: tarea.title,
     sessions: tarea.sessions ?? 1,
@@ -343,6 +346,7 @@ function EditTareaForm({ tarea, lang, onSave, onCancel, onDelete }) {
     day: tarea.day,
     start: tarea.start,
     dur: tarea.dur,
+    objId: tarea.objId,
   });
   const [saving, setSaving] = useState(false);
 
@@ -361,6 +365,7 @@ function EditTareaForm({ tarea, lang, onSave, onCancel, onDelete }) {
         day: Number(form.day),
         start: Number(form.start),
         dur: Number(form.dur),
+        objId: form.objId,
       });
     } finally {
       setSaving(false);
@@ -425,6 +430,18 @@ function EditTareaForm({ tarea, lang, onSave, onCancel, onDelete }) {
           title={t(lang, 'dueDate')}
           style={smallInput}
         />
+        {objectives && objectives.length > 0 && (
+          <select
+            value={form.objId}
+            onChange={e => set('objId', e.target.value)}
+            title={lang === 'es' ? 'Objetivo' : 'Objective'}
+            style={{ ...smallInput, maxWidth: 160 }}
+          >
+            {objectives.map(o => (
+              <option key={o.id} value={o.id}>{o.title}</option>
+            ))}
+          </select>
+        )}
         <div style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
           <button
             type="button"
@@ -569,6 +586,8 @@ function ObjetivoCard({
   onEdit,
   onDelete,
   onComplete,
+  allObjetivos,
+  onMoveTask,
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [tareas, setTareas] = useState(() => sortTareas(initialTareas));
@@ -577,6 +596,7 @@ function ObjetivoCard({
   const [completed, setCompleted] = useState(Boolean(objetivo.done));
   const [togglingWeek, setTogglingWeek] = useState(false);
   const [togglingComplete, setTogglingComplete] = useState(false);
+  const [confirmUnschedule, setConfirmUnschedule] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [editingTareaId, setEditingTareaId] = useState(null);
@@ -593,6 +613,17 @@ function ObjetivoCard({
 
   async function handleThisWeekToggle() {
     if (togglingWeek) return;
+    if (thisWeek) {
+      const scheduledCount = tareas.filter(t => t.day != null && !t.done).length;
+      if (scheduledCount > 0) {
+        setConfirmUnschedule(true);
+        return;
+      }
+    }
+    await doThisWeekToggle();
+  }
+
+  async function doThisWeekToggle() {
     setTogglingWeek(true);
     const next = !thisWeek;
     setThisWeek(next);
@@ -601,6 +632,22 @@ function ObjetivoCard({
       onThisWeekToggle?.(objetivo.id, next);
     } catch {
       setThisWeek(!next);
+    } finally {
+      setTogglingWeek(false);
+    }
+  }
+
+  async function handleConfirmUnschedule() {
+    setConfirmUnschedule(false);
+    setTareas(prev => prev.map(t => t.done ? t : { ...t, day: null, start: null }));
+    setTogglingWeek(true);
+    setThisWeek(false);
+    try {
+      await toggleObjetivoThisWeek(objetivo.id);
+      await unscheduleObjetivoTareas(objetivo.id);
+      onThisWeekToggle?.(objetivo.id, false);
+    } catch {
+      setThisWeek(true);
     } finally {
       setTogglingWeek(false);
     }
@@ -645,6 +692,22 @@ function ObjetivoCard({
 
   async function handleEditTarea(id, data) {
     const original = tareas.find((t) => t.id === id);
+    const isMoving = data.objId !== undefined && data.objId !== objetivo.id;
+
+    if (isMoving) {
+      setTareas((prev) => prev.filter((t) => t.id !== id));
+      setEditingTareaId(null);
+      try {
+        await changeTareaObjetivo(id, data.objId);
+        const { objId: _removed, ...rest } = data;
+        if (Object.keys(rest).length > 0) await updateTarea(id, rest);
+        onMoveTask?.(id);
+      } catch {
+        if (original) setTareas((prev) => [...prev, original]);
+      }
+      return;
+    }
+
     setTareas((prev) => prev.map((t) => (t.id === id ? { ...t, ...data } : t)));
     setEditingTareaId(null);
     try {
@@ -865,6 +928,7 @@ function ObjetivoCard({
                     onSave={(data) => handleEditTarea(tarea.id, data)}
                     onCancel={() => setEditingTareaId(null)}
                     onDelete={() => handleDeleteTarea(tarea.id)}
+                    objectives={allObjetivos}
                   />
                 );
               }
@@ -1062,6 +1126,58 @@ function ObjetivoCard({
           }}
         />
       )}
+
+      {confirmUnschedule && (() => {
+        const count = tareas.filter(t => t.day != null && !t.done).length;
+        const title = lang === 'en' && objetivo.title_en ? objetivo.title_en : objetivo.title;
+        return (
+          <div
+            style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            onClick={() => setConfirmUnschedule(false)}
+          >
+            <div
+              onClick={e => e.stopPropagation()}
+              style={{
+                background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 12,
+                padding: '24px 28px', maxWidth: 380, width: '90%',
+                boxShadow: '0 16px 40px rgba(0,0,0,0.5)',
+              }}
+            >
+              <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', marginBottom: 8 }}>
+                {lang === 'es' ? 'Quitar de esta semana' : 'Remove from this week'}
+              </p>
+              <p style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.5, marginBottom: 20 }}>
+                {lang === 'es'
+                  ? `"${title}" tiene ${count} tarea${count !== 1 ? 's' : ''} programada${count !== 1 ? 's' : ''}. Al quitar el objetivo de la semana, todas quedarán sin programar.`
+                  : `"${title}" has ${count} scheduled task${count !== 1 ? 's' : ''}. Removing the objective from this week will unschedule all of them.`}
+              </p>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => setConfirmUnschedule(false)}
+                  style={{
+                    border: '1px solid var(--line)', background: 'transparent', color: 'var(--ink-3)',
+                    borderRadius: 8, padding: '6px 16px', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
+                  }}
+                >
+                  {lang === 'es' ? 'Cancelar' : 'Cancel'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmUnschedule}
+                  style={{
+                    border: 'none', background: 'var(--danger)', color: 'white',
+                    borderRadius: 8, padding: '6px 16px', fontSize: 13, fontWeight: 500,
+                    cursor: 'pointer', fontFamily: 'inherit',
+                  }}
+                >
+                  {lang === 'es' ? 'Quitar y desagendar' : 'Remove & unschedule'}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </>
   );
 }
@@ -1071,12 +1187,14 @@ function ObjetivoCard({
 function MetaGroup({
   meta,
   objetivos,
+  allObjetivos,
   allTareas,
   lang,
   onObjetivoAdd,
   onObjetivoEdit,
   onObjetivoDelete,
   onObjetivoComplete,
+  onMoveTask,
 }) {
   const metaTitle = lang === 'en' && meta.title_en ? meta.title_en : meta.title;
   const progress = metaProgress(meta.id, objetivos);
@@ -1124,6 +1242,8 @@ function MetaGroup({
               onEdit={onObjetivoEdit}
               onDelete={onObjetivoDelete}
               onComplete={onObjetivoComplete}
+              allObjetivos={allObjetivos}
+              onMoveTask={onMoveTask}
             />
           );
         })}
@@ -1254,6 +1374,7 @@ export default function ViewObjetivos({
   objetivos: initialObjetivos,
   tareas: initialTareas,
 }) {
+  const router = useRouter();
   const [lang, setLang] = useState('es');
   const [metas] = useState(initialMetas);
   const [objetivos, setObjetivos] = useState(initialObjetivos);
@@ -1285,6 +1406,10 @@ export default function ViewObjetivos({
     setObjetivos((prev) => prev.map((o) => (o.id === id ? { ...o, done: isDone ? 1 : 0 } : o)));
   }, []);
 
+  const handleMoveTask = useCallback(() => {
+    router.refresh();
+  }, [router]);
+
   return (
     <div
       style={{
@@ -1310,12 +1435,14 @@ export default function ViewObjetivos({
                 key={meta.id}
                 meta={meta}
                 objetivos={metaObjetivos}
+                allObjetivos={objetivos}
                 allTareas={tareas}
                 lang={lang}
                 onObjetivoAdd={handleObjetivoAdd}
                 onObjetivoEdit={handleObjetivoEdit}
                 onObjetivoDelete={handleObjetivoDelete}
                 onObjetivoComplete={handleObjetivoComplete}
+                onMoveTask={handleMoveTask}
               />
             );
           })

@@ -13,7 +13,7 @@ import { t } from '@/lib/i18n';
 import { PALETTE, palById } from '@/lib/palette';
 import { toggleMetaActive, createMeta, updateMetaColor } from '@/lib/actions/metas';
 import { createObjetivo, updateObjetivo, deleteObjetivo, toggleObjetivoThisWeek, toggleObjetivoCompleted } from '@/lib/actions/objetivos';
-import { toggleTarea, reorderTareas, unscheduleTarea, createTarea, updateTarea, deleteTarea } from '@/lib/actions/tareas';
+import { toggleTarea, reorderTareas, unscheduleTarea, unscheduleObjetivoTareas, createTarea, updateTarea, deleteTarea, changeTareaObjetivo } from '@/lib/actions/tareas';
 import { toggleHitoDone, createHito, updateHito } from '@/lib/actions/hitos';
 import NewMetaForm from '@/components/modals/NewMetaForm';
 import WizardAgent from '@/components/modals/WizardAgent';
@@ -228,7 +228,7 @@ function ObjetivoWeekRow({ objetivo, isSelected, allTareas, lang, onSelect }) {
   );
 }
 
-function ObjectiveCard({ objetivo, allTareas, lang, onTaskToggle, onTaskUnschedule, onReorder, onThisWeekToggle, onDone, onEdit, onDelete, onCreateTask, onUpdateTask, onDeleteTask }) {
+function ObjectiveCard({ objetivo, allTareas, allObjetivos, lang, onTaskToggle, onTaskUnschedule, onReorder, onThisWeekToggle, onDone, onEdit, onDelete, onCreateTask, onUpdateTask, onDeleteTask }) {
   const [isOpen, setIsOpen] = useState(true);
   const [sortMode, setSortMode] = useState('order');
   const [dragId, setDragId] = useState(null);
@@ -298,11 +298,23 @@ function ObjectiveCard({ objetivo, allTareas, lang, onTaskToggle, onTaskUnschedu
     setDragOver(null);
   }
 
-  function handleDropZone(e, beforeIdx) {
+  function handleDragOverTask(e, taskId) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const rect = e.currentTarget.getBoundingClientRect();
+    const side = e.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+    if (dragOver?.id !== taskId || dragOver?.side !== side) {
+      setDragOver({ id: taskId, side });
+    }
+  }
+
+  function handleDropOnTask(e, targetTaskId) {
     e.preventDefault();
     const id = e.dataTransfer.getData('text/task') || dragId;
-    if (id && onReorder) {
-      onReorder(id, objetivo.id, beforeIdx);
+    const rect = e.currentTarget.getBoundingClientRect();
+    const side = e.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+    if (id && id !== targetTaskId) {
+      onReorder?.(id, objetivo.id, targetTaskId, side);
     }
     setDragId(null);
     setDragOver(null);
@@ -446,10 +458,10 @@ function ObjectiveCard({ objetivo, allTareas, lang, onTaskToggle, onTaskUnschedu
                 onClick={() => setSortMode(k)}
                 style={{
                   border: 'none', borderRadius: 5, padding: '3px 8px', fontSize: 11,
-                  background: sortMode === k ? 'white' : 'transparent',
+                  background: sortMode === k ? 'var(--bg)' : 'transparent',
                   color: sortMode === k ? 'var(--ink)' : 'var(--ink-3)',
                   cursor: 'pointer',
-                  boxShadow: sortMode === k ? '0 0 0 1px var(--line)' : 'none',
+                  boxShadow: sortMode === k ? '0 1px 3px rgba(0,0,0,.18), 0 0 0 1px var(--line)' : 'none',
                 }}
               >{lab}</button>
             ))}
@@ -459,25 +471,21 @@ function ObjectiveCard({ objetivo, allTareas, lang, onTaskToggle, onTaskUnschedu
             )}
           </div>
 
-          {sorted.map((task, idx) => {
+          {sorted.map((task) => {
             const isDragging = dragId === task.id;
-            const isDropBefore = dragOver?.beforeIdx === idx;
+            const isDropBefore = dragOver?.id === task.id && dragOver.side === 'before';
+            const isDropAfter = dragOver?.id === task.id && dragOver.side === 'after';
 
             return (
-              <div key={task.id}>
-                {sortMode === 'order' && (
-                  <div
-                    onDragOver={(e) => { e.preventDefault(); setDragOver({ beforeIdx: idx }); }}
-                    onDrop={(e) => handleDropZone(e, idx)}
-                    style={{
-                      height: isDropBefore ? 16 : 3,
-                      background: isDropBefore ? pal.dot : 'transparent',
-                      transition: 'height .12s ease',
-                      margin: isDropBefore ? '0 14px' : 0,
-                      borderRadius: 2,
-                    }}
-                  />
-                )}
+              <div
+                key={task.id}
+                onDragOver={sortMode === 'order' ? (e) => handleDragOverTask(e, task.id) : undefined}
+                onDrop={sortMode === 'order' ? (e) => handleDropOnTask(e, task.id) : undefined}
+                style={{
+                  borderTop: isDropBefore ? `2px solid ${pal.dot}` : '2px solid transparent',
+                  borderBottom: isDropAfter ? `2px solid ${pal.dot}` : '2px solid transparent',
+                }}
+              >
                 <TaskItem
                   task={task}
                   lang={lang}
@@ -490,24 +498,11 @@ function ObjectiveCard({ objetivo, allTareas, lang, onTaskToggle, onTaskUnschedu
                   onDragStart={(e) => handleDragStart(e, task.id)}
                   onDragEnd={handleDragEnd}
                   accentColor={pal.dot}
+                  objectives={allObjetivos}
                 />
               </div>
             );
           })}
-
-          {sortMode === 'order' && (
-            <div
-              onDragOver={(e) => { e.preventDefault(); setDragOver({ beforeIdx: sorted.length }); }}
-              onDrop={(e) => handleDropZone(e, sorted.length)}
-              style={{
-                height: dragOver?.beforeIdx === sorted.length ? 16 : 3,
-                background: dragOver?.beforeIdx === sorted.length ? pal.dot : 'transparent',
-                transition: 'height .12s ease',
-                margin: '0 14px',
-                borderRadius: 2,
-              }}
-            />
-          )}
           
           {/* Formulario para agregar nueva tarea */}
           {newTaskObjId === objetivo.id ? (
@@ -770,6 +765,7 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
   const [metaFormOpen, setMetaFormOpen] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [generateModal, setGenerateModal] = useState(null);
+  const [confirmUnschedule, setConfirmUnschedule] = useState(null); // objId pendiente de confirmación
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -842,19 +838,25 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
     try { await unscheduleTarea(taskId); } catch { /* revert if needed */ }
   }
 
-  function handleReorder(taskId, objId, beforeIdx) {
+  function handleReorder(taskId, objId, targetTaskId, side) {
     const moving = tareas.find(t => t.id === taskId);
-    if (!moving) return;
+    if (!moving || taskId === targetTaskId) return;
 
-    // Full visual order (same sort as ObjectiveCard uses for rendering)
     const allInObj = sortTasks(tareas.filter(t => t.objId === objId), 'order');
     const fromIdx = allInObj.findIndex(t => t.id === taskId);
-    const others = allInObj.filter(t => t.id !== taskId);
+    const targetIdx = allInObj.findIndex(t => t.id === targetTaskId);
 
-    // beforeIdx references the full array; after removing the dragged item,
-    // every slot after fromIdx shifts down by 1
-    const insertAt = fromIdx !== -1 && fromIdx < beforeIdx ? beforeIdx - 1 : beforeIdx;
-    others.splice(Math.min(insertAt, others.length), 0, { ...moving, objId });
+    if (fromIdx === -1 || targetIdx === -1) return;
+
+    // Desired insertion position before removing the dragged element
+    let insertBefore = side === 'before' ? targetIdx : targetIdx + 1;
+
+    const others = allInObj.filter(t => t.id !== taskId);
+    // After removing fromIdx, every index after it shifts down by 1
+    if (fromIdx < insertBefore) insertBefore--;
+
+    const insertAt = Math.max(0, Math.min(insertBefore, others.length));
+    others.splice(insertAt, 0, { ...moving, objId });
     const reordered = others.map((t, i) => ({ ...t, sortOrder: i }));
 
     setTareas(prev => prev.map(t => reordered.find(r => r.id === t.id) ?? t));
@@ -880,7 +882,11 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
   async function handleUpdateTask(taskId, data) {
     setTareas(prev => prev.map(t => t.id === taskId ? { ...t, ...data } : t));
     try {
-      await updateTarea(taskId, data);
+      if (data.objId !== undefined) {
+        await changeTareaObjetivo(taskId, data.objId);
+      } else {
+        await updateTarea(taskId, data);
+      }
     } catch {
       setTareas(prev => [...initialTareas]);
     }
@@ -896,9 +902,31 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
   }
 
   async function handleThisWeekToggle(objId) {
+    const obj = objetivos.find(o => o.id === objId);
+    const isRemoving = obj?.thisWeek;
+    if (isRemoving) {
+      const scheduledCount = tareas.filter(t => t.objId === objId && t.day != null && !t.done).length;
+      if (scheduledCount > 0) {
+        setConfirmUnschedule(objId);
+        return;
+      }
+    }
     setObjetivos(prev => prev.map(o => o.id === objId ? { ...o, thisWeek: !o.thisWeek } : o));
     try { await toggleObjetivoThisWeek(objId); }
     catch { setObjetivos(prev => prev.map(o => o.id === objId ? { ...o, thisWeek: !o.thisWeek } : o)); }
+  }
+
+  async function handleConfirmUnschedule() {
+    const objId = confirmUnschedule;
+    setConfirmUnschedule(null);
+    setObjetivos(prev => prev.map(o => o.id === objId ? { ...o, thisWeek: false } : o));
+    setTareas(prev => prev.map(t => t.objId === objId && !t.done ? { ...t, day: null, start: null } : t));
+    try {
+      await toggleObjetivoThisWeek(objId);
+      await unscheduleObjetivoTareas(objId);
+    } catch {
+      setObjetivos(prev => prev.map(o => o.id === objId ? { ...o, thisWeek: true } : o));
+    }
   }
 
   async function handleToggleObjetivoCompleted(objId) {
@@ -1171,6 +1199,7 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
                       key={o.id}
                       objetivo={o}
                       allTareas={tareas}
+                      allObjetivos={objetivos}
                       lang={lang}
                       onTaskToggle={handleTaskToggle}
                       onTaskUnschedule={handleUnschedule}
@@ -1260,6 +1289,59 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
           onSaved={() => { setGenerateModal(null); router.refresh(); }}
         />
       )}
+
+      {confirmUnschedule && (() => {
+        const obj = objetivos.find(o => o.id === confirmUnschedule);
+        const count = tareas.filter(t => t.objId === confirmUnschedule && t.day != null && !t.done).length;
+        const title = lang === 'en' && obj?.title_en ? obj.title_en : obj?.title ?? '';
+        return (
+          <div
+            style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            onClick={() => setConfirmUnschedule(null)}
+          >
+            <div
+              onClick={e => e.stopPropagation()}
+              style={{
+                background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 12,
+                padding: '24px 28px', maxWidth: 380, width: '90%',
+                boxShadow: '0 16px 40px rgba(0,0,0,0.5)',
+              }}
+            >
+              <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', marginBottom: 8 }}>
+                {lang === 'es' ? 'Quitar de esta semana' : 'Remove from this week'}
+              </p>
+              <p style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.5, marginBottom: 20 }}>
+                {lang === 'es'
+                  ? `"${title}" tiene ${count} tarea${count !== 1 ? 's' : ''} programada${count !== 1 ? 's' : ''}. Al quitar el objetivo de la semana, todas quedarán sin programar.`
+                  : `"${title}" has ${count} scheduled task${count !== 1 ? 's' : ''}. Removing the objective from this week will unschedule all of them.`}
+              </p>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => setConfirmUnschedule(null)}
+                  style={{
+                    border: '1px solid var(--line)', background: 'transparent', color: 'var(--ink-3)',
+                    borderRadius: 8, padding: '6px 16px', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
+                  }}
+                >
+                  {lang === 'es' ? 'Cancelar' : 'Cancel'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmUnschedule}
+                  style={{
+                    border: 'none', background: 'var(--danger)', color: 'white',
+                    borderRadius: 8, padding: '6px 16px', fontSize: 13, fontWeight: 500,
+                    cursor: 'pointer', fontFamily: 'inherit',
+                  }}
+                >
+                  {lang === 'es' ? 'Quitar y desagendar' : 'Remove & unschedule'}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

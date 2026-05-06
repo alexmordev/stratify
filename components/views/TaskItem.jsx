@@ -20,6 +20,7 @@ export default function TaskItem({
   onToggle, onDelete, onUpdate, onUnschedule,
   isDraggable, isDragging, onDragStart, onDragEnd,
   accentColor,
+  objectives,
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
@@ -318,6 +319,34 @@ export default function TaskItem({
               >{label}</button>
             ))}
           </div>
+
+          {/* Objective selector */}
+          {objectives && objectives.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <span style={{ fontSize: 11, color: 'var(--ink-4)', flexShrink: 0 }}>
+                {t(lang, 'moveToObjective')}:
+              </span>
+              <select
+                value={task.objId}
+                onChange={e => {
+                  const newObjId = e.target.value;
+                  if (newObjId !== task.objId) onUpdate(task.id, { objId: newObjId });
+                }}
+                style={{
+                  fontSize: 11, fontFamily: 'inherit',
+                  border: '1px solid var(--line)', borderRadius: 5,
+                  padding: '2px 6px', background: 'var(--bg-2)', color: 'var(--ink)',
+                  maxWidth: 220, outline: 'none',
+                }}
+              >
+                {objectives.map(o => (
+                  <option key={o.id} value={o.id}>
+                    {o.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* List mode */}
           {detailsMode === 'list' && (
