@@ -345,11 +345,12 @@ export default function TaskItem({
                 {(() => {
                   const groups = {};
                   objectives.forEach(o => {
-                    if (!groups[o.hitoId]) groups[o.hitoId] = { label: o.hitoEnunciado, items: [] };
-                    groups[o.hitoId].items.push(o);
+                    const key = o.hitoId ?? '__no_hito__';
+                    if (!groups[key]) groups[key] = { label: o.hitoEnunciado || (lang === 'en' ? 'No milestone' : 'Sin hito'), items: [] };
+                    groups[key].items.push(o);
                   });
-                  return Object.entries(groups).map(([hitoId, group]) => (
-                    <optgroup key={hitoId} label={group.label}>
+                  return Object.entries(groups).map(([key, group]) => (
+                    <optgroup key={key} label={group.label}>
                       {group.items.map(o => (
                         <option key={o.id} value={o.id}>
                           {lang === 'en' && o.title_en ? o.title_en : o.title}

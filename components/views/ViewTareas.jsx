@@ -1102,7 +1102,7 @@ export default function ViewTareas({ tareas: initialTareas, objetivos, metas = [
   const activeObjIds = new Set(activeObjetivos.map(o => o.id));
 
   const backlog = tareas
-    .filter(t => (t.day === null || t.day === undefined) && !t.done)
+    .filter(t => !t.scheduledDate && !t.done)
     .filter(t => filterObj === 'all' ? activeObjIds.has(t.objId) : t.objId === filterObj)
     .sort((a, b) => {
       const ad = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
@@ -1111,8 +1111,10 @@ export default function ViewTareas({ tareas: initialTareas, objetivos, metas = [
     });
 
   function getTareasForColumn(colDate) {
-    const dayOfWeek = colDate.getDay() === 0 ? 6 : colDate.getDay() - 1;
-    return tareas.filter((t) => t.day === dayOfWeek);
+    return tareas.filter((t) => {
+      if (!t.scheduledDate) return false;
+      return isSameDay(new Date(t.scheduledDate), colDate);
+    });
   }
 
   function handleDragStart(id, source, dur = 1) {
@@ -1134,13 +1136,15 @@ export default function ViewTareas({ tareas: initialTareas, objetivos, metas = [
 
     const colDate = columns[colIndex];
     const dayOfWeek = colDate.getDay() === 0 ? 6 : colDate.getDay() - 1;
+    const scheduledDate = new Date(colDate);
+    scheduledDate.setHours(0, 0, 0, 0);
 
     if (hour != null) {
-      setTareas(prev => prev.map(t => t.id === id ? { ...t, day: dayOfWeek, start: hour } : t));
-      try { await scheduleTarea(id, dayOfWeek, hour); } catch { }
+      setTareas(prev => prev.map(t => t.id === id ? { ...t, day: dayOfWeek, start: hour, scheduledDate } : t));
+      try { await scheduleTarea(id, dayOfWeek, hour, scheduledDate); } catch { }
     } else {
-      setTareas(prev => prev.map(t => t.id === id ? { ...t, day: dayOfWeek } : t));
-      try { await moveTarea(id, dayOfWeek); } catch { }
+      setTareas(prev => prev.map(t => t.id === id ? { ...t, day: dayOfWeek, scheduledDate } : t));
+      try { await moveTarea(id, dayOfWeek, scheduledDate); } catch { }
     }
   }
 
@@ -1196,7 +1200,10 @@ export default function ViewTareas({ tareas: initialTareas, objetivos, metas = [
 
   async function handleModalConfirm({ objId, title, day, start, dur }) {
     const objetivo = objetivos.find((o) => o.id === objId) ?? null;
-    const dayOfWeek = columns[day].getDay() === 0 ? 6 : columns[day].getDay() - 1;
+    const colDate = columns[day];
+    const dayOfWeek = colDate.getDay() === 0 ? 6 : colDate.getDay() - 1;
+    const scheduledDate = new Date(colDate);
+    scheduledDate.setHours(0, 0, 0, 0);
     try {
       const newTarea = await createTarea({
         objId,
@@ -1206,6 +1213,7 @@ export default function ViewTareas({ tareas: initialTareas, objetivos, metas = [
         start,
         dur,
         done: false,
+        scheduledDate,
       });
       const withObj = { ...newTarea, objetivo };
       setTareas((prev) => [...prev, withObj]);
@@ -1229,8 +1237,9 @@ export default function ViewTareas({ tareas: initialTareas, objetivos, metas = [
           const rangeLabel = view === 'day'
             ? `${weekStart.getDate()} ${ms[weekStart.getMonth()]}`
             : `${weekStart.getDate()} ${ms[weekStart.getMonth()]} – ${weekEnd.getDate()} ${ms[weekEnd.getMonth()]}`;
-          const completedCount = tareas.filter(t => t.done).length;
-          const scheduledTotal = tareas.filter(t => t.day != null).length;
+          const scheduledInView = tareas.filter(t => t.scheduledDate && columns.some(col => isSameDay(new Date(t.scheduledDate), col)));
+          const completedCount = scheduledInView.filter(t => t.done).length;
+          const scheduledTotal = scheduledInView.length;
           return (
             <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20 }}>
               <div>
@@ -1382,7 +1391,7 @@ export default function ViewTareas({ tareas: initialTareas, objetivos, metas = [
             const id = draggingId.current;
             const source = draggingSource.current;
             if (id && source === 'calendar') {
-              setTareas(prev => prev.map(t => t.id === id ? { ...t, day: null, start: null } : t));
+              setTareas(prev => prev.map(t => t.id === id ? { ...t, day: null, start: null, scheduledDate: null } : t));
               unscheduleTarea(id).catch(() => {});
             }
             draggingId.current = null;

@@ -606,7 +606,7 @@ function ObjetivoCard({
   const [tareas, setTareas] = useState(() => sortTareas(initialTareas));
   const [showAddForm, setShowAddForm] = useState(false);
   const [thisWeek, setThisWeek] = useState(objetivo.thisWeek ?? false);
-  const [completed, setCompleted] = useState(Boolean(objetivo.done));
+  const [completed, setCompleted] = useState(Boolean(objetivo.completed));
   const [togglingWeek, setTogglingWeek] = useState(false);
   const [togglingComplete, setTogglingComplete] = useState(false);
   const [confirmUnschedule, setConfirmUnschedule] = useState(false);
@@ -615,6 +615,10 @@ function ObjetivoCard({
   const [editingTareaId, setEditingTareaId] = useState(null);
   const [dragId, setDragId] = useState(null);
   const [dropTarget, setDropTarget] = useState(null);
+  const [showAllTareas, setShowAllTareas] = useState(false);
+
+  const PAGE_SIZE = 10;
+  const visibleTareas = showAllTareas ? tareas : tareas.slice(0, PAGE_SIZE);
 
   const pal = palById(objetivo.color);
   const title = lang === 'en' && objetivo.title_en ? objetivo.title_en : objetivo.title;
@@ -627,7 +631,7 @@ function ObjetivoCard({
   async function handleThisWeekToggle() {
     if (togglingWeek) return;
     if (thisWeek) {
-      const scheduledCount = tareas.filter(t => t.day != null && !t.done).length;
+      const scheduledCount = tareas.filter(t => t.scheduledDate != null && !t.done).length;
       if (scheduledCount > 0) {
         setConfirmUnschedule(true);
         return;
@@ -652,7 +656,7 @@ function ObjetivoCard({
 
   async function handleConfirmUnschedule() {
     setConfirmUnschedule(false);
-    setTareas(prev => prev.map(t => t.done ? t : { ...t, day: null, start: null }));
+    setTareas(prev => prev.map(t => t.done ? t : { ...t, day: null, start: null, scheduledDate: null }));
     setTogglingWeek(true);
     setThisWeek(false);
     try {
@@ -925,7 +929,7 @@ function ObjetivoCard({
             data-testid={`task-list-${objetivo.id}`}
             style={{ display: 'flex', flexDirection: 'column', gap: 0 }}
           >
-            {tareas.map((tarea) => {
+            {visibleTareas.map((tarea) => {
               const tareaTitle = lang === 'en' && tarea.title_en ? tarea.title_en : tarea.title;
               const isEditing = editingTareaId === tarea.id;
               const isDragging = dragId === tarea.id;
@@ -1080,6 +1084,24 @@ function ObjetivoCard({
               );
             })}
 
+            {tareas.length > PAGE_SIZE && (
+              <button
+                type="button"
+                onClick={() => setShowAllTareas((v) => !v)}
+                style={{
+                  background: 'none', border: 'none', padding: '4px 0',
+                  cursor: 'pointer', fontSize: 12, color: 'var(--ink-4)',
+                  textAlign: 'left', fontFamily: 'inherit',
+                  display: 'flex', alignItems: 'center', gap: 4,
+                }}
+              >
+                <Icon name={showAllTareas ? 'chev-d' : 'chev-r'} size={11} />
+                {showAllTareas
+                  ? (lang === 'es' ? 'Mostrar menos' : 'Show less')
+                  : (lang === 'es' ? `Mostrar ${tareas.length - PAGE_SIZE} más` : `Show ${tareas.length - PAGE_SIZE} more`)}
+              </button>
+            )}
+
             {showAddForm ? (
               <AddTareaForm
                 objId={objetivo.id}
@@ -1141,7 +1163,7 @@ function ObjetivoCard({
       )}
 
       {confirmUnschedule && (() => {
-        const count = tareas.filter(t => t.day != null && !t.done).length;
+        const count = tareas.filter(t => t.scheduledDate != null && !t.done).length;
         const title = lang === 'en' && objetivo.title_en ? objetivo.title_en : objetivo.title;
         return (
           <div
@@ -1213,8 +1235,8 @@ function MetaGroup({
 
   const hitoMap = Object.fromEntries((meta.hitos ?? []).map(h => [h.id, h.enunciado]));
   const moveableObjetivos = objetivos
-    .filter(o => !o.done && o.hitoId)
-    .map(o => ({ id: o.id, title: o.title, title_en: o.title_en, color: o.color, hitoId: o.hitoId, hitoEnunciado: hitoMap[o.hitoId] ?? '' }));
+    .filter(o => !o.done)
+    .map(o => ({ id: o.id, title: o.title, title_en: o.title_en, color: o.color, hitoId: o.hitoId ?? null, hitoEnunciado: o.hitoId ? (hitoMap[o.hitoId] ?? '') : '' }));
 
   return (
     <section data-testid={`meta-group-${meta.id}`} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -1266,70 +1288,102 @@ function MetaGroup({
         })}
       </div>
 
-      <AddObjetivoButton metaId={meta.id} lang={lang} onAdd={onObjetivoAdd} />
+      <AddObjetivoButton metaId={meta.id} hitos={meta.hitos ?? []} lang={lang} onAdd={onObjetivoAdd} />
     </section>
   );
 }
 
 // ─── Add objective button ─────────────────────────────────────────────────────
 
-function AddObjetivoButton({ metaId, lang, onAdd }) {
+function AddObjetivoButton({ metaId, hitos = [], lang, onAdd }) {
   const [hovered, setHovered] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState('');
+  const [hitoId, setHitoId] = useState('');
 
   async function handleSubmit(e) {
     e.preventDefault();
     if (!title.trim()) return;
     setSaving(true);
     try {
-      const newObj = await createObjetivo({
+      const data = {
         metaId,
         title: title.trim(),
         title_en: title.trim(),
         color: 'sand',
         weeklyLoad: 1,
         done: 0,
-      });
+      };
+      if (hitoId) data.hitoId = hitoId;
+      const newObj = await createObjetivo(data);
       onAdd?.(newObj);
       setTitle('');
+      setHitoId('');
       setShowForm(false);
     } finally {
       setSaving(false);
     }
   }
 
+  const inputStyle = {
+    border: '1px solid var(--line)',
+    borderRadius: 8,
+    padding: '6px 10px',
+    fontSize: 13,
+    fontFamily: 'inherit',
+    color: 'var(--ink)',
+    background: 'var(--bg)',
+    outline: 'none',
+  };
+
   if (showForm) {
     return (
       <form
         data-testid={`add-objetivo-form-${metaId}`}
         onSubmit={handleSubmit}
-        style={{ display: 'flex', gap: 8, alignItems: 'center' }}
+        style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
       >
         <input
           autoFocus
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder={lang === 'en' ? 'Objective title…' : 'Título de objetivo…'}
-          style={{
-            flex: 1,
-            border: '1px solid var(--line)',
-            borderRadius: 8,
-            padding: '6px 10px',
-            fontSize: 13,
-            fontFamily: 'inherit',
-            color: 'var(--ink)',
-            background: 'var(--bg)',
-            outline: 'none',
-          }}
+          style={{ ...inputStyle }}
         />
-        <Btn size="sm" variant="ghost" onClick={() => setShowForm(false)} type="button">
-          {t(lang, 'cancel')}
-        </Btn>
-        <Btn size="sm" variant="primary" type="submit" disabled={saving || !title.trim()}>
-          {t(lang, 'save')}
-        </Btn>
+        {hitos.length > 0 ? (
+          <select
+            value={hitoId}
+            onChange={e => setHitoId(e.target.value)}
+            required
+            style={{ ...inputStyle, cursor: 'pointer' }}
+          >
+            <option value="" disabled>
+              {lang === 'en' ? 'Assign to milestone…' : 'Asignar a hito…'}
+            </option>
+            {hitos.map(h => (
+              <option key={h.id} value={h.id}>{h.enunciado}</option>
+            ))}
+          </select>
+        ) : (
+          <div style={{
+            fontSize: 12, color: 'var(--ink-3)',
+            border: '1px solid var(--line)', borderRadius: 8,
+            padding: '6px 10px', background: 'var(--bg-2)',
+          }}>
+            {lang === 'en'
+              ? 'This meta has no milestones. Create a milestone first.'
+              : 'Esta meta no tiene hitos. Crea un hito primero.'}
+          </div>
+        )}
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <Btn size="sm" variant="ghost" onClick={() => { setShowForm(false); setTitle(''); setHitoId(''); }} type="button">
+            {t(lang, 'cancel')}
+          </Btn>
+          <Btn size="sm" variant="primary" type="submit" disabled={saving || !title.trim() || !hitoId}>
+            {t(lang, 'save')}
+          </Btn>
+        </div>
       </form>
     );
   }
@@ -1420,7 +1474,7 @@ export default function ViewObjetivos({
   }, []);
 
   const handleObjetivoComplete = useCallback((id, isDone) => {
-    setObjetivos((prev) => prev.map((o) => (o.id === id ? { ...o, done: isDone ? 1 : 0 } : o)));
+    setObjetivos((prev) => prev.map((o) => (o.id === id ? { ...o, completed: isDone } : o)));
   }, []);
 
   const handleMoveTask = useCallback(() => {

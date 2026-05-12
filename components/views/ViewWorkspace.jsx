@@ -257,7 +257,7 @@ function ObjectiveCard({ objetivo, allTareas, allObjetivos, lang, onTaskToggle, 
   }
 
   const pal = palById(objetivo.color);
-  const isDone = Boolean(objetivo.done);
+  const isDone = Boolean(objetivo.completed);
   const tks = allTareas.filter(t => t.objId === objetivo.id);
   const doneTks = tks.filter(t => t.done).length;
   const totalSes = tks.reduce((s, t) => s + (t.sessions ?? 0), 0);
@@ -544,11 +544,27 @@ function toDateInputValue(isoOrDate) {
   return `${y}-${m}-${day}`;
 }
 
-function HitoRow({ hito, last, lang, onToggle, onEdit, onGenerate }) {
+function HitoRow({ hito, last, lang, onToggle, onEdit, onGenerate, onAddObjetivo }) {
   const [confirming, setConfirming] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [editDate, setEditDate] = useState('');
+  const [addingObjetivo, setAddingObjetivo] = useState(false);
+  const [newObjTitle, setNewObjTitle] = useState('');
+  const [savingObj, setSavingObj] = useState(false);
+
+  async function handleAddObjetivo(e) {
+    e.preventDefault();
+    if (!newObjTitle.trim()) return;
+    setSavingObj(true);
+    try {
+      await onAddObjetivo?.(hito.id, newObjTitle.trim());
+      setNewObjTitle('');
+      setAddingObjetivo(false);
+    } finally {
+      setSavingObj(false);
+    }
+  }
 
   const hasObjetivos = (hito._count?.objetivos ?? 0) > 0;
   const d = hito.fecha_objetivo ? new Date(hito.fecha_objetivo) : null;
@@ -676,7 +692,8 @@ function HitoRow({ hito, last, lang, onToggle, onEdit, onGenerate }) {
             </div>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto auto', gap: 14, alignItems: 'center' }}>
+          <>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto auto auto', gap: 14, alignItems: 'center' }}>
             <button
               type="button"
               onClick={startEdit}
@@ -704,6 +721,18 @@ function HitoRow({ hito, last, lang, onToggle, onEdit, onGenerate }) {
             }}>
               {relative}
             </span>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setAddingObjetivo(v => !v); }}
+              title={lang === 'es' ? 'Agregar objetivo' : 'Add objective'}
+              style={{
+                border: '1px solid var(--line)', background: addingObjetivo ? 'var(--bg-2)' : 'transparent',
+                borderRadius: 5, padding: '2px 5px', cursor: 'pointer',
+                fontSize: 11, color: 'var(--ink-3)', lineHeight: 1,
+              }}
+            >
+              +
+            </button>
             {!confirming ? (
               <button
                 type="button"
@@ -750,6 +779,48 @@ function HitoRow({ hito, last, lang, onToggle, onEdit, onGenerate }) {
               </div>
             )}
           </div>
+          {addingObjetivo && (
+            <form
+              onSubmit={handleAddObjetivo}
+              style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}
+            >
+              <input
+                autoFocus
+                value={newObjTitle}
+                onChange={e => setNewObjTitle(e.target.value)}
+                placeholder={lang === 'en' ? 'Objective title…' : 'Título de objetivo…'}
+                style={{
+                  flex: 1, border: '1px solid var(--line)', borderRadius: 7,
+                  padding: '5px 10px', fontSize: 12.5, fontFamily: 'inherit',
+                  color: 'var(--ink)', background: 'var(--bg)', outline: 'none',
+                }}
+              />
+              <button
+                type="submit"
+                disabled={savingObj || !newObjTitle.trim()}
+                style={{
+                  border: 'none', background: 'oklch(0.62 0.14 145)', color: 'white',
+                  borderRadius: 5, padding: '4px 10px', cursor: 'pointer',
+                  fontSize: 12, fontFamily: 'inherit',
+                  opacity: (savingObj || !newObjTitle.trim()) ? 0.5 : 1,
+                }}
+              >
+                {lang === 'es' ? 'Guardar' : 'Save'}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setAddingObjetivo(false); setNewObjTitle(''); }}
+                style={{
+                  border: '1px solid var(--line)', background: 'transparent',
+                  color: 'var(--ink-3)', borderRadius: 5, padding: '4px 10px',
+                  cursor: 'pointer', fontSize: 12, fontFamily: 'inherit',
+                }}
+              >
+                {lang === 'es' ? 'Cancelar' : 'Cancel'}
+              </button>
+            </form>
+          )}
+          </>
         )}
       </div>
     </div>
@@ -798,8 +869,8 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
 
   const hitoMap = Object.fromEntries(metaHitos.map(h => [h.id, h.enunciado]));
   const moveableObjetivos = metaObjetivos
-    .filter(o => !o.done && o.hitoId)
-    .map(o => ({ id: o.id, title: o.title, title_en: o.title_en, color: o.color, hitoId: o.hitoId, hitoEnunciado: hitoMap[o.hitoId] ?? '' }));
+    .filter(o => !o.completed)
+    .map(o => ({ id: o.id, title: o.title, title_en: o.title_en, color: o.color, hitoId: o.hitoId ?? null, hitoEnunciado: o.hitoId ? (hitoMap[o.hitoId] ?? '') : '' }));
   const metaPct = metaHitos.length
     ? Math.round((hitosDone / metaHitos.length) * 100)
     : 0;
@@ -910,7 +981,7 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
     const obj = objetivos.find(o => o.id === objId);
     const isRemoving = obj?.thisWeek;
     if (isRemoving) {
-      const scheduledCount = tareas.filter(t => t.objId === objId && t.day != null && !t.done).length;
+      const scheduledCount = tareas.filter(t => t.objId === objId && t.scheduledDate != null && !t.done).length;
       if (scheduledCount > 0) {
         setConfirmUnschedule(objId);
         return;
@@ -925,7 +996,7 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
     const objId = confirmUnschedule;
     setConfirmUnschedule(null);
     setObjetivos(prev => prev.map(o => o.id === objId ? { ...o, thisWeek: false } : o));
-    setTareas(prev => prev.map(t => t.objId === objId && !t.done ? { ...t, day: null, start: null } : t));
+    setTareas(prev => prev.map(t => t.objId === objId && !t.done ? { ...t, day: null, start: null, scheduledDate: null } : t));
     try {
       await toggleObjetivoThisWeek(objId);
       await unscheduleObjetivoTareas(objId);
@@ -935,9 +1006,9 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
   }
 
   async function handleToggleObjetivoCompleted(objId) {
-    setObjetivos(prev => prev.map(o => o.id === objId ? { ...o, done: o.done ? 0 : 1 } : o));
+    setObjetivos(prev => prev.map(o => o.id === objId ? { ...o, completed: !o.completed } : o));
     try { await toggleObjetivoCompleted(objId); }
-    catch { setObjetivos(prev => prev.map(o => o.id === objId ? { ...o, done: o.done ? 0 : 1 } : o)); }
+    catch { setObjetivos(prev => prev.map(o => o.id === objId ? { ...o, completed: !o.completed } : o)); }
   }
 
   async function handleEditObjetivo(objId, title) {
@@ -965,6 +1036,21 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
 
   function handleGenerateObjetivos(hito) {
     setGenerateModal({ hito, meta: selectedMeta });
+  }
+
+  async function handleAddObjetivoFromHito(hitoId, title) {
+    try {
+      const newObj = await createObjetivo({
+        metaId: selectedMeta.id,
+        hitoId,
+        title,
+        title_en: title,
+        color: 'sand',
+        weeklyLoad: 1,
+        done: 0,
+      });
+      setObjetivos(prev => [...prev, { ...newObj, tareas: [] }]);
+    } catch { /* server revalidates */ }
   }
 
   async function handleAddHito(metaId) {
@@ -1264,6 +1350,7 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
                         onToggle={handleToggleHito}
                         onEdit={handleUpdateHito}
                         onGenerate={handleGenerateObjetivos}
+                        onAddObjetivo={handleAddObjetivoFromHito}
                       />
                     ))
                 )}
@@ -1297,7 +1384,7 @@ export default function ViewWorkspace({ metas: initialMetas, objetivos: initialO
 
       {confirmUnschedule && (() => {
         const obj = objetivos.find(o => o.id === confirmUnschedule);
-        const count = tareas.filter(t => t.objId === confirmUnschedule && t.day != null && !t.done).length;
+        const count = tareas.filter(t => t.objId === confirmUnschedule && t.scheduledDate != null && !t.done).length;
         const title = lang === 'en' && obj?.title_en ? obj.title_en : obj?.title ?? '';
         return (
           <div

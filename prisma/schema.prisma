@@ -58,6 +58,7 @@ model Objetivo {
   color                 String    @default("sand")
   weeklyLoad            Int       @default(1)
   done                  Int       @default(0)
+  completed             Boolean   @default(false)
   thisWeek              Boolean   @default(false)
   tareas                Tarea[]
 }
@@ -75,7 +76,8 @@ model Tarea {
   subtasks  Json?
   notes     String?   @db.Text
   sessions  Int       @default(1)
-  dueDate   DateTime?
-  sortOrder Int       @default(0)
-  createdAt DateTime  @default(now())
+  dueDate       DateTime?
+  scheduledDate DateTime?
+  sortOrder     Int       @default(0)
+  createdAt     DateTime  @default(now())
 }
